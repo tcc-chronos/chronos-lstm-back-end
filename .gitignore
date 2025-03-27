@@ -31,3 +31,10 @@ tox.ini
 *.log
 *.swp
 *.swo
+
+# process files
+*.csv
+*.txt
+
+# includes requirements.txt
+!requirements.txt
