@@ -37,12 +37,21 @@ Use o seguinte comando `cURL` para iniciar o treinamento do modelo:
 curl --location '{{CHRONOS_ENDPOINT}}/train' \
 --header 'Content-Type: application/json' \
 --data '{
-  "file_path": "processed_data.csv",
-  "column_data": "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius",
-  "window_size": 60,
-  "learning_rate": 0.001,
-  "epochs": 5,
-  "batch_size": 16
+    "file_path": "data.csv",
+    "column_data": "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius",
+    "window_size": 60,
+    "multi_feature": true,
+    "epochs": 1,
+    "batch_size": 16,
+    "learning_rate": 0.001,
+    "dense_activation": "relu",
+    "loss_function": "mse",
+    "optimizer": "adam",
+    "num_lstm_layers": 1,
+    "num_dense_layers": 0,
+    "dropout_rate": 0.1,
+    "early_stopping_patience": 5,
+    "shuffle_data": true
 }'
 ```
 
