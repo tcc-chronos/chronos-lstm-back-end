@@ -1,6 +1,8 @@
 # Interface para leitura de dados (ex: arquivo txt)
 from abc import ABC, abstractmethod
 from typing import Tuple
+from app.entities.train_model_config import TrainModelConfig
+
 
 class IProcessTextUseCase(ABC):        
     @abstractmethod
@@ -14,11 +16,9 @@ class ITrainModelUseCase(ABC):
         self, 
         file_path: str, 
         column_data: str, 
-        window_size: int,
+        window_size: int, 
         multi_feature: bool, 
-        epochs: int,
-        batch_size: int,
-        learning_rate: float
+        config: TrainModelConfig
     ) -> Tuple:
         """Executa o processamento de um arquivo csv e retorna os valores pós treino."""
         pass

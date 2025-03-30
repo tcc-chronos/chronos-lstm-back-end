@@ -3,14 +3,15 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Input
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.layers import LSTM, Dense, Input, Dropout
+from tensorflow.keras.optimizers import Adam, SGD, RMSprop
 from tensorflow.keras.callbacks import EarlyStopping
+from typing import Tuple
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from app.core.exceptions import ProcessingError
+from app.entities.train_model_config import TrainModelConfig
 from app.infrastructure.csv_reader import CsvReader
 from app.usecases.interfaces import ITrainModelUseCase
-from typing import Tuple
 
 class TrainModelUseCase(ITrainModelUseCase):
     def __init__(self):
@@ -20,39 +21,47 @@ class TrainModelUseCase(ITrainModelUseCase):
             file_path: str, 
             column_data: str, 
             window_size: int, 
-            multi_feature: bool = False,
-            epochs: int = 50,
-            batch_size: int = 16,
-            learning_rate: float = 0.001
+            multi_feature: bool,
+            config: TrainModelConfig
         ) -> Tuple:
+        # Validação das configurações
+        self.validate_config(config)
+
         # Leitura dos dados
         df = CsvReader(file_path).read()
         
         # Preparação dos dados para teste
-        x_train, x_test, y_train, y_test, y_scaler = self.data_preprocessing(df, column_data, window_size, multi_feature)
+        x_train, x_test, y_train, y_test, y_scaler = self.data_preprocessing(df, column_data, window_size, multi_feature, config.shuffle_data)
 
         # Preparação do modelo
-        model = self.model_compile(learning_rate, window_size, qtd_features=x_train.shape[2])
+        model = self.model_compile(window_size, config, qtd_features=x_train.shape[2])
 
         # Treinamento do modelo
-        mse, mae = self.model_train(model, epochs, batch_size, multi_feature, x_train, x_test, y_train, y_test, y_scaler)
+        mse, mae = self.model_train(model, multi_feature, x_train, x_test, y_train, y_test, y_scaler, config)
 
         # Retorno dos dados de treino
         return mse, mae
-    
-    def data_preprocessing(self, df: pd.DataFrame, column_data: str, window_size: int, multi_feature: bool) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, StandardScaler, int]:
+
+    def validate_config(self, config: TrainModelConfig):
+        if config.num_lstm_layers <= 0:
+            raise ProcessingError("Número de camadas LSTM deve ser maior que zero")
+        if config.num_dense_layers < 0:
+            raise ProcessingError("Número de camadas DENSE deve ser positivo")
+        if config.dropout_rate < 0 or config.dropout_rate >= 1:
+            raise ProcessingError("A desativação de neurônios (dropout_rate) deve estar entre [0, 1)")
+
+    def data_preprocessing(self, df: pd.DataFrame, column_data: str, window_size: int, multi_feature: bool, shuffle_data: bool) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, StandardScaler]:
         if multi_feature:
             df = df.dropna().copy()
         else:
             df = df.dropna(subset=['timestamp', column_data]).copy()
         
         df['timestamp'] = pd.to_datetime(df['timestamp']).astype(np.int64) // 10**9
-
-        x =  df.drop(columns=[column_data]).values if multi_feature else df['timestamp'].values
+        x = df.drop(columns=[column_data]).values if multi_feature else df['timestamp'].values
         y = df[column_data].values
 
-        x_scaler = StandardScaler()
-        y_scaler = StandardScaler()
+        x_scaler, y_scaler = StandardScaler(), StandardScaler()
+
         x_scaled = x_scaler.fit_transform(x) if multi_feature else x_scaler.fit_transform(x.reshape(-1, 1)).flatten()
         y_scaled = y_scaler.fit_transform(y.reshape(-1, 1)).flatten()
 
@@ -62,48 +71,40 @@ class TrainModelUseCase(ITrainModelUseCase):
             y_seq.append(y_scaled[i + window_size])
         x_seq = np.array(x_seq) if multi_feature else np.array(x_seq).reshape(-1, window_size, 1)
         y_seq = np.array(y_seq)
+        
+        return (*train_test_split(x_seq, y_seq, test_size=0.2, random_state=42, shuffle=shuffle_data), y_scaler)
 
-        if len(x_seq) < 1:
-            raise ProcessingError("Dados insuficientes para o treinamento após criar as sequências.")
 
-        return (*train_test_split(x_seq, y_seq, test_size=0.2, random_state=42), y_scaler)
+    def model_compile(self, window_size: int, config: TrainModelConfig, qtd_features: int = 1) -> Sequential:
+        model = Sequential()
+        model.add(Input(shape=(window_size, qtd_features)))
+        for _ in range(config.num_lstm_layers):
+            model.add(LSTM(128, return_sequences=True if _ < config.num_lstm_layers - 1 else False))
+            model.add(Dropout(config.dropout_rate))
+        for _ in range(config.num_dense_layers):
+            model.add(Dense(64, activation=config.dense_activation.value))
+        model.add(Dense(1))
 
-    def model_compile(self, learning_rate: float, window_size: int, qtd_features: int = 1) -> Sequential:
-        model = Sequential([
-            Input(shape=(window_size, qtd_features)),
-            LSTM(128),
-            Dense(64, activation='relu'),
-            Dense(1)
-        ])
-        model.compile(optimizer=Adam(learning_rate=learning_rate), loss='mse')
-
+        optimizer_instance = {"adam": Adam, "sgd": SGD, "rmsprop": RMSprop}[config.optimizer.value](learning_rate=config.learning_rate)
+        model.compile(optimizer=optimizer_instance, loss=config.loss_function.value)
+        
         return model
 
-    def model_train(self, model: Sequential, epochs: int, batch_size: int, multi_feature: bool, 
-                    x_train: np.ndarray, x_test: np.ndarray, y_train: np.ndarray, 
-                    y_test: np.ndarray, y_scaler: StandardScaler) -> Tuple[float, float]:
-        early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-        
+    def model_train(self, model: Sequential, multi_feature: bool, x_train: np.ndarray, x_test: np.ndarray, y_train: np.ndarray, y_test: np.ndarray, y_scaler: StandardScaler, config: TrainModelConfig) -> Tuple[float, float]:
+        early_stop = EarlyStopping(monitor='val_loss', patience=config.early_stopping_patience, restore_best_weights=True)
         model.fit(
             x_train, y_train,
-            epochs=epochs,
-            batch_size=batch_size,
+            epochs=config.epochs,
+            batch_size=config.batch_size,
             validation_data=(x_test, y_test),
             callbacks=[early_stop],
+            shuffle=config.shuffle_data, 
             verbose=1
         )
-
-        # Previsões e métricas
-        if multi_feature: 
-            predictions = model.predict(x_test)
-            mse = mean_squared_error(y_test, predictions)
-            mae = mean_absolute_error(y_test, predictions)
-        else:
-            predictions = model.predict(x_test).flatten()
+        
+        predictions = model.predict(x_test).flatten()
+        if not multi_feature:
             predictions = y_scaler.inverse_transform(predictions.reshape(-1, 1)).flatten()
-            y_test_inv = y_scaler.inverse_transform(y_test.reshape(-1, 1)).flatten()
-
-            mse = mean_squared_error(y_test_inv, predictions)
-            mae = mean_absolute_error(y_test_inv, predictions)
-
-        return mse, mae
+            y_test = y_scaler.inverse_transform(y_test.reshape(-1, 1)).flatten()
+        
+        return mean_squared_error(y_test, predictions), mean_absolute_error(y_test, predictions)
