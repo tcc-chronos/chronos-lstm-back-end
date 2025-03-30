@@ -37,7 +37,7 @@ async def process_text(request: TrainModelRequest, train_model_use_case: ITrainM
             shuffle_data=request.shuffle_data
         )
         
-        mse, mae = train_model_use_case.execute(
+        mse, mae, rmse, mape, r2, best_val_loss = train_model_use_case.execute(
             request.file_path, 
             request.column_data,
             request.window_size,
@@ -52,7 +52,12 @@ async def process_text(request: TrainModelRequest, train_model_use_case: ITrainM
             status="success",
             training_time=training_time,
             mean_squared_error=mse, 
-            mean_absolute_error=mae
+            mean_absolute_error=mae,
+            root_mean_squared_error=rmse,
+            mean_absolute_percentage_error=mape,
+            r_2_score=r2,
+            best_val_loss=best_val_loss
         )
+    
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

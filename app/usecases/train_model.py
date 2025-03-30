@@ -7,7 +7,7 @@ from tensorflow.keras.layers import LSTM, Dense, Input, Dropout
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop
 from tensorflow.keras.callbacks import EarlyStopping
 from typing import Tuple
-from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from app.core.exceptions import ProcessingError
 from app.entities.train_model_config import TrainModelConfig
 from app.infrastructure.csv_reader import CsvReader
@@ -37,10 +37,10 @@ class TrainModelUseCase(ITrainModelUseCase):
         model = self.model_compile(window_size, config, qtd_features=x_train.shape[2])
 
         # Treinamento do modelo
-        mse, mae = self.model_train(model, multi_feature, x_train, x_test, y_train, y_test, y_scaler, config)
+        metrics = self.model_train(model, multi_feature, x_train, x_test, y_train, y_test, y_scaler, config)
 
         # Retorno dos dados de treino
-        return mse, mae
+        return metrics
 
     def validate_config(self, config: TrainModelConfig):
         if config.num_lstm_layers <= 0:
@@ -90,7 +90,7 @@ class TrainModelUseCase(ITrainModelUseCase):
         
         return model
 
-    def model_train(self, model: Sequential, multi_feature: bool, x_train: np.ndarray, x_test: np.ndarray, y_train: np.ndarray, y_test: np.ndarray, y_scaler: StandardScaler, config: TrainModelConfig) -> Tuple[float, float]:
+    def model_train(self, model: Sequential, multi_feature: bool, x_train: np.ndarray, x_test: np.ndarray, y_train: np.ndarray, y_test: np.ndarray, y_scaler: StandardScaler, config: TrainModelConfig) -> Tuple:
         early_stop = EarlyStopping(monitor='val_loss', patience=config.early_stopping_patience, restore_best_weights=True)
         model.fit(
             x_train, y_train,
@@ -107,4 +107,11 @@ class TrainModelUseCase(ITrainModelUseCase):
             predictions = y_scaler.inverse_transform(predictions.reshape(-1, 1)).flatten()
             y_test = y_scaler.inverse_transform(y_test.reshape(-1, 1)).flatten()
         
-        return mean_squared_error(y_test, predictions), mean_absolute_error(y_test, predictions)
+        mse = mean_squared_error(y_test, predictions)
+        mae = mean_absolute_error(y_test, predictions)
+        rmse = np.sqrt(mse)
+        mape = np.mean(np.abs((y_test - predictions) / y_test)) * 100
+        r2 = r2_score(y_test, predictions)
+        best_val_loss = min(model.history.history["val_loss"])
+
+        return mse, mae, rmse, mape, r2, best_val_loss

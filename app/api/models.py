@@ -34,3 +34,8 @@ class ProcessedTextResponse(BaseModel):
     training_time: float
     mean_squared_error: float
     mean_absolute_error: float
+    root_mean_squared_error: float
+    mean_absolute_percentage_error: float
+    r_2_score: float
+    best_val_loss: float
+
