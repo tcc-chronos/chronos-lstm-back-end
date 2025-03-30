@@ -10,6 +10,14 @@ class IProcessTextUseCase(ABC):
 
 class ITrainModelUseCase(ABC):        
     @abstractmethod
-    def execute(self, file_path: str, column_data: str, window_size: int) -> Tuple:
+    def execute(
+        self, 
+        file_path: str, 
+        column_data: str, 
+        window_size: int, 
+        epochs: int,
+        batch_size: int,
+        learning_rate: float
+    ) -> Tuple:
         """Executa o processamento de um arquivo csv e retorna os valores pós treino."""
         pass

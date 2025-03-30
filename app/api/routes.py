@@ -21,10 +21,13 @@ async def process_text(request: TrainModelRequest, train_model_use_case: ITrainM
     try:
         start_time = time.time()
         
-        return_data = train_model_use_case.execute(
+        mse, mae = train_model_use_case.execute(
             request.file_path, 
             request.column_data,
-            request.window_size
+            request.window_size,
+            request.epochs,
+            request.batch_size,
+            request.learning_rate
         )
 
         end_time = time.time()
@@ -33,7 +36,8 @@ async def process_text(request: TrainModelRequest, train_model_use_case: ITrainM
         return ProcessedTextResponse(
             status="success",
             training_time=training_time,
-            data=return_data
+            mean_squared_error=mse, 
+            mean_absolute_error=mae
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
