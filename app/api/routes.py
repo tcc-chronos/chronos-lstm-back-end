@@ -25,6 +25,7 @@ async def process_text(request: TrainModelRequest, train_model_use_case: ITrainM
             request.file_path, 
             request.column_data,
             request.window_size,
+            request.multi_feature,
             request.epochs,
             request.batch_size,
             request.learning_rate

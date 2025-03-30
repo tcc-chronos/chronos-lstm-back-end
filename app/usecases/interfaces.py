@@ -14,7 +14,8 @@ class ITrainModelUseCase(ABC):
         self, 
         file_path: str, 
         column_data: str, 
-        window_size: int, 
+        window_size: int,
+        multi_feature: bool, 
         epochs: int,
         batch_size: int,
         learning_rate: float

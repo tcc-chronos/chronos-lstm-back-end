@@ -15,6 +15,7 @@ class TrainModelRequest(BaseModel):
     file_path: Optional[str] = "data.csv"
     column_data: Optional[str] = "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius"
     window_size: Optional[int] = 60
+    multi_feature: Optional[bool] = False
     learning_rate: Optional[float] = 0.001
     epochs: Optional[int] = 50
     batch_size: Optional[int] = 16
