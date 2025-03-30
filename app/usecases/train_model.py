@@ -28,60 +28,69 @@ class TrainModelUseCase(ITrainModelUseCase):
         df = CsvReader(file_path).read()
         
         # Preparação dos dados para teste
-        split_data = self.data_preprocessing(df, column_data, window_size)
+        x_train, x_test, y_train, y_test, y_scaler = self.data_preprocessing(df, column_data, window_size)
 
         # Preparação do modelo
-        x_col_len = split_data[0].shape[2]
-        model = self.model_compile(learning_rate, window_size, x_col_len)
+        model = self.model_compile(learning_rate, window_size)
 
         # Treinamento do modelo
-        mse, mae = self.model_train(model, epochs, batch_size, split_data)
+        mse, mae = self.model_train(model, epochs, batch_size, x_train, x_test, y_train, y_test, y_scaler)
 
         # Retorno dos dados de treino
         return mse, mae
     
-    def data_preprocessing(self, df: pd.DataFrame, column_data: str, window_size: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        x = pd.to_datetime(df['timestamp']).values
+    def data_preprocessing(self, df: pd.DataFrame, column_data: str, window_size: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, StandardScaler]:
+        df = df.dropna(subset=['timestamp', column_data])
+        x = pd.to_datetime(df['timestamp']).astype(np.int64) / 10**9 
         y = pd.to_numeric(df[column_data]).values
 
-        x_scaled = StandardScaler().fit_transform(x.reshape(-1, 1)).flatten()
-        y_scaled = StandardScaler().fit_transform(y.reshape(-1, 1)).flatten()
+        x_scaler = StandardScaler()
+        y_scaler = StandardScaler()
+        x_scaled = x_scaler.fit_transform(x.values.reshape(-1, 1)).flatten()
+        y_scaled = y_scaler.fit_transform(y.reshape(-1, 1)).flatten()
 
-        x_seq = []
-        y_seq = []
+        x_seq, y_seq = [], []
         for i in range(len(x_scaled) - window_size):
             x_seq.append(x_scaled[i:i + window_size])
             y_seq.append(y_scaled[i + window_size])
-        x_seq = np.array(x_seq)
+        x_seq = np.array(x_seq).reshape(-1, window_size, 1)
         y_seq = np.array(y_seq)
 
         if len(x_seq) < 1:
             raise ProcessingError("Dados insuficientes para o treinamento após criar as sequências.")
 
-        return train_test_split(x_seq, y_seq, test_size=0.2, random_state=42)
+        return (*train_test_split(x_seq, y_seq, test_size=0.2, random_state=42), y_scaler)
 
-    def model_compile(self, learning_rate: float, window_size: int, x_col_len: int) -> Sequential:
-        model = Sequential()
-        model.add(LSTM(128, return_sequences=True, input_shape=(window_size, x_col_len)))
-        model.add(LSTM(64))
-        model.add(Dense(1))
+    def model_compile(self, learning_rate: float, window_size: int) -> Sequential:
+        model = Sequential([
+            LSTM(128, input_shape=(window_size, 1)),
+            Dense(64, activation='relu'),
+            Dense(1)
+        ])
         model.compile(optimizer=Adam(learning_rate=learning_rate), loss='mse')
 
         return model
 
-    def model_train(self, model: Sequential, epochs: int, batch_size: int, split_data: Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]) -> Tuple[float, float]:
-        early_stop = EarlyStopping(monitor='val_loss', patience=5)
+    def model_train(self, model: Sequential, epochs: int, batch_size: int, 
+                    x_train: np.ndarray, x_test: np.ndarray, y_train: np.ndarray, 
+                    y_test: np.ndarray, y_scaler: StandardScaler) -> Tuple[float, float]:
+        early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+        
         model.fit(
-            split_data[0], split_data[2],
+            x_train, y_train,
             epochs=epochs,
             batch_size=batch_size,
-            validation_data=(split_data[1], split_data[3]),
+            validation_data=(x_test, y_test),
             callbacks=[early_stop],
             verbose=1
         )
 
-        predictions = model.predict(split_data[1])
-        mse = mean_squared_error(split_data[3], predictions)
-        mae = mean_absolute_error(split_data[3], predictions)
+        # Previsões e métricas
+        predictions = model.predict(x_test).flatten()
+        predictions = y_scaler.inverse_transform(predictions.reshape(-1, 1)).flatten()
+        y_test_inv = y_scaler.inverse_transform(y_test.reshape(-1, 1)).flatten()
+
+        mse = mean_squared_error(y_test_inv, predictions)
+        mae = mean_absolute_error(y_test_inv, predictions)
 
         return mse, mae
