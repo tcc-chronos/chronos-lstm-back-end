@@ -8,8 +8,8 @@ class ActivationFunction(Enum):
     LINEAR = "linear"
 
 class LossFunction(Enum):
-    MSE = "mse"
-    MAE = "mae"
+    MSE = "mean_squared_error"
+    MAE = "mean_absolute_error"
     HUBER = "huber"
 
 class OptimizerType(Enum):

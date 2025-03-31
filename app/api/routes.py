@@ -42,7 +42,8 @@ async def process_text(request: TrainModelRequest, train_model_use_case: ITrainM
             request.column_data,
             request.window_size,
             request.multi_feature,
-            config
+            config,
+            model_save_path = "trained_model.h5"
         )
 
         end_time = time.time()
@@ -73,6 +74,7 @@ async def predict(request: PredictModelRequest, predict_model_use_case: IPredict
             request.file_path, 
             request.column_data,
             request.window_size,
+            request.multi_feature,
             model_path="trained_model.h5"
         )
         

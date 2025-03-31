@@ -22,7 +22,8 @@ class TrainModelUseCase(ITrainModelUseCase):
             column_data: str, 
             window_size: int, 
             multi_feature: bool,
-            config: TrainModelConfig
+            config: TrainModelConfig,
+            model_save_path: str = "trained_model.h5"
         ) -> Tuple:
         # Validação das configurações
         self.validate_config(config)
@@ -38,6 +39,9 @@ class TrainModelUseCase(ITrainModelUseCase):
 
         # Treinamento do modelo
         metrics = self.model_train(model, multi_feature, x_train, x_test, y_train, y_test, y_scaler, config)
+
+        # Salva o modelo em um arquivo .h5
+        model.save(model_save_path)  
 
         # Retorno dos dados de treino
         return metrics
