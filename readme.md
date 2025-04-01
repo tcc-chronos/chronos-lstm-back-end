@@ -45,7 +45,7 @@ curl --location '{{CHRONOS_ENDPOINT}}/train' \
     "batch_size": 16,
     "learning_rate": 0.001,
     "dense_activation": "relu",
-    "loss_function": "mse",
+    "loss_function": "mean_squared_error",
     "optimizer": "adam",
     "num_lstm_layers": 1,
     "num_dense_layers": 0,
