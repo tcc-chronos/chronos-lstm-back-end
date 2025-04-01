@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Input, Dropout
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop
@@ -54,7 +54,7 @@ class TrainModelUseCase(ITrainModelUseCase):
         if config.dropout_rate < 0 or config.dropout_rate >= 1:
             raise ProcessingError("A desativação de neurônios (dropout_rate) deve estar entre [0, 1)")
 
-    def data_preprocessing(self, df: pd.DataFrame, column_data: str, window_size: int, multi_feature: bool, shuffle_data: bool) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, StandardScaler]:
+    def data_preprocessing(self, df: pd.DataFrame, column_data: str, window_size: int, multi_feature: bool, shuffle_data: bool) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, MinMaxScaler]:
         if multi_feature:
             df = df.dropna().copy()
         else:
@@ -64,7 +64,7 @@ class TrainModelUseCase(ITrainModelUseCase):
         x = df.drop(columns=[column_data]).values if multi_feature else df['timestamp'].values
         y = df[column_data].values
 
-        x_scaler, y_scaler = StandardScaler(), StandardScaler()
+        x_scaler, y_scaler = MinMaxScaler(), MinMaxScaler()
 
         x_scaled = x_scaler.fit_transform(x) if multi_feature else x_scaler.fit_transform(x.reshape(-1, 1)).flatten()
         y_scaled = y_scaler.fit_transform(y.reshape(-1, 1)).flatten()
@@ -94,7 +94,7 @@ class TrainModelUseCase(ITrainModelUseCase):
         
         return model
 
-    def model_train(self, model: Sequential, multi_feature: bool, x_train: np.ndarray, x_test: np.ndarray, y_train: np.ndarray, y_test: np.ndarray, y_scaler: StandardScaler, config: TrainModelConfig) -> Tuple:
+    def model_train(self, model: Sequential, multi_feature: bool, x_train: np.ndarray, x_test: np.ndarray, y_train: np.ndarray, y_test: np.ndarray, y_scaler: MinMaxScaler, config: TrainModelConfig) -> Tuple:
         early_stop = EarlyStopping(monitor='val_loss', patience=config.early_stopping_patience, restore_best_weights=True)
         model.fit(
             x_train, y_train,
@@ -114,7 +114,8 @@ class TrainModelUseCase(ITrainModelUseCase):
         mse = mean_squared_error(y_test, predictions)
         mae = mean_absolute_error(y_test, predictions)
         rmse = np.sqrt(mse)
-        mape = np.mean(np.abs((y_test - predictions) / y_test)) * 100
+        epsilon = 1e-10 
+        mape = np.mean(np.abs((y_test - predictions) / (y_test + epsilon))) * 100
         r2 = r2_score(y_test, predictions)
         best_val_loss = min(model.history.history["val_loss"])
 
