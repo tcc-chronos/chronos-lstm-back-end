@@ -1,6 +1,7 @@
 # Define modelos para o retorno da API (como response schemas)
 from pydantic import BaseModel
 from typing import Tuple, Optional
+from typing import List
 
 # Modelo para o corpo da requisição (Request)
 class FilePathRequest(BaseModel):
@@ -27,6 +28,7 @@ class TrainModelRequest(BaseModel):
     dropout_rate: Optional[float] = 0.2
     early_stopping_patience: Optional[int] = 5
     shuffle_data: Optional[bool] = True
+    model_save_path: Optional[str] = "trained_model.h5"
 
 class ProcessedTextResponse(BaseModel):
     status: str
@@ -43,8 +45,10 @@ class PredictModelRequest(BaseModel):
     column_data: Optional[str] = "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius"
     window_size: Optional[int] = 60
     multi_feature: Optional[bool] = False
+    n_steps_ahead: Optional[int] = 2
+    model_path: Optional[str] = "trained_model.h5"
     
 class PredictionResponse(BaseModel):
     status: str
-    forecast: float
+    forecast: List[float]
     prediction_time: float

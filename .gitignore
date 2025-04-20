@@ -35,7 +35,7 @@ tox.ini
 # process files
 *.csv
 *.txt
-*.h5
+*.keras
 
 # includes requirements.txt
 !requirements.txt

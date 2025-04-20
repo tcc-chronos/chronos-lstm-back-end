@@ -51,11 +51,27 @@ curl --location '{{CHRONOS_ENDPOINT}}/train' \
     "num_dense_layers": 0,
     "dropout_rate": 0.1,
     "early_stopping_patience": 5,
-    "shuffle_data": true
+    "shuffle_data": true,
+    "model_save_path": "trained_model.keras"
 }'
 ```
 
-### 7. Desativar ambiente virtual (se necessário)
+### 7. Chamar o endpoint para Predição
+Use o seguinte comando `cURL` para iniciar a predição do modelo já treinado:
+```sh
+curl --location 'http://127.0.0.1:8000/predict' \
+--header 'Content-Type: application/json' \
+--data '{
+    "file_path": "processed_data.csv",
+    "column_data": "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius",
+    "window_size": 60,
+    "multi_feature": false,
+    "n_steps_ahead": 10,
+    "model_path": "trained_model.keras"
+}'
+```
+
+### 8. Desativar ambiente virtual (se necessário)
 ```sh
 deactivate
 ```
