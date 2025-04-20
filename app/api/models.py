@@ -28,7 +28,7 @@ class TrainModelRequest(BaseModel):
     dropout_rate: Optional[float] = 0.2
     early_stopping_patience: Optional[int] = 5
     shuffle_data: Optional[bool] = True
-    model_save_path: Optional[str] = "trained_model.h5"
+    model_save_path: Optional[str] = "trained_model.keras"
 
 class ProcessedTextResponse(BaseModel):
     status: str
@@ -46,7 +46,7 @@ class PredictModelRequest(BaseModel):
     window_size: Optional[int] = 60
     multi_feature: Optional[bool] = False
     n_steps_ahead: Optional[int] = 2
-    model_path: Optional[str] = "trained_model.h5"
+    model_path: Optional[str] = "trained_model.keras"
     
 class PredictionResponse(BaseModel):
     status: str
