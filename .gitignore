@@ -32,7 +32,8 @@ tox.ini
 *.swp
 *.swo
 
-# process files
+# processed files
+/temp
 *.csv
 *.txt
 *.keras

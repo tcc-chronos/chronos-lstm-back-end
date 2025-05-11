@@ -1,10 +1,12 @@
-import numpy as np
+import os
+import json
 import joblib
+import numpy as np
+from typing import Tuple
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, GRU, Dense, Input, Dropout
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from typing import Tuple
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from app.core.exceptions import ProcessingError
 from app.entities.train_model_config import TrainModelConfig
@@ -40,10 +42,7 @@ class TrainModelUseCase(ITrainModelUseCase):
         # Treinamento do modelo
         metrics = self.model_train(model, multi_feature, x_train, x_test, y_train, y_test, y_scaler, config)
 
-        # Salva o modelo em um arquivo .keras
-        model.save(f'{config.rnn_type}.keras')
-        joblib.dump(x_scaler, f'{config.rnn_type}_x_scaler.pkl')
-        joblib.dump(y_scaler, f'{config.rnn_type}_y_scaler.pkl')
+        self.save_model(config, column_data, window_size, multi_feature, model, x_scaler, y_scaler)
 
         # Retorno dos dados de treino
         return metrics
@@ -127,3 +126,37 @@ class TrainModelUseCase(ITrainModelUseCase):
         best_train_loss = history.history['loss'][best_epoch]
 
         return mse, mae, rmse, mape, r2, accuracy, best_train_loss, best_val_loss
+
+    def save_model(self, 
+            config:TrainModelConfig, 
+            column_data: str, 
+            window_size: int, 
+            multi_feature: bool,
+            model: Sequential, 
+            x_scaler, 
+            y_scaler
+        ):
+        # Salva o modelo em um arquivo .keras
+        save_dir = os.path.join(os.getcwd(), 'temp')
+        os.makedirs(save_dir, exist_ok=True)
+
+        model.save(os.path.join(save_dir, f'{config.rnn_type}.keras'))
+        joblib.dump(x_scaler, os.path.join(save_dir, f'{config.rnn_type}_x_scaler.pkl'))
+        joblib.dump(y_scaler, os.path.join(save_dir, f'{config.rnn_type}_y_scaler.pkl'))
+
+        metadata = {
+            "rnn_type": config.rnn_type,
+            "rnn_units": config.rnn_units,
+            "dense_units": config.dense_units,
+            "dropout_rate": config.dropout_rate,
+            "learning_rate": config.learning_rate,
+            "batch_size": config.batch_size,
+            "epochs": config.epochs,
+            "column_data": column_data,
+            "window_size": window_size,
+            "multi_feature": multi_feature,
+        }
+
+        os.makedirs(save_dir, exist_ok=True)
+        with open(os.path.join(save_dir, f"{config.rnn_type}_metadata.json"), "w") as f:
+            json.dump(metadata, f, indent=4)
