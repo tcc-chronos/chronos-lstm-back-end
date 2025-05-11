@@ -3,14 +3,6 @@ from pydantic import BaseModel
 from typing import Tuple, Optional
 from typing import List
 
-# Modelo para o corpo da requisição (Request)
-class FilePathRequest(BaseModel):
-    file_path: str
-
-# Modelo para a resposta da API (Response)
-class ProcessedTextResponse(BaseModel):
-    status: str
-    data: str
 
 class TrainModelRequest(BaseModel):
     file_path: Optional[str] = "data.csv"
@@ -30,7 +22,7 @@ class TrainModelRequest(BaseModel):
     shuffle_data: Optional[bool] = True
     model_save_path: Optional[str] = "trained_model.keras"
 
-class ProcessedTextResponse(BaseModel):
+class TrainModelResponse(BaseModel):
     status: str
     training_time: float
     mean_squared_error: float

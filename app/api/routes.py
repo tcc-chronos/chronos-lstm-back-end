@@ -1,25 +1,20 @@
 # Define as rotas da API
 import time
 from fastapi import APIRouter, Depends, HTTPException
-from app.api.models import FilePathRequest, ProcessedTextResponse, TrainModelRequest, PredictionResponse, PredictModelRequest
-from app.core.dependency_injector import get_process_text_use_case, get_train_model_use_case, get_predict_model_use_case
+from app.api.models import TrainModelRequest, TrainModelResponse, PredictModelRequest, PredictionResponse
+from app.core.dependency_injector import get_train_model_use_case, get_predict_model_use_case
 from app.entities.train_model_config import TrainModelConfig
-from app.usecases.interfaces import IProcessTextUseCase, ITrainModelUseCase, IPredictModelUseCase
+from app.usecases.interfaces import ITrainModelUseCase, IPredictModelUseCase
 from app.utils.enums import ActivationFunction, LossFunction, OptimizerType, str_to_enum
 
 router = APIRouter()
 
-@router.post("/process")
-async def process_text(request: FilePathRequest, process_text_use_case: IProcessTextUseCase = Depends(get_process_text_use_case)):
-    try:
-        # Usando o caminho do arquivo fornecido no corpo da requisição
-        processed_data = process_text_use_case.execute(request.file_path)
-        return ProcessedTextResponse(status="success", data=processed_data)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@router.get("/health", tags=["Health Check"])
+async def health_check():
+    return {"status": "ok", "message": "API is running"}
 
 @router.post("/train")
-async def process_text(request: TrainModelRequest, train_model_use_case: ITrainModelUseCase = Depends(get_train_model_use_case)):
+async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUseCase = Depends(get_train_model_use_case)):
     try:
         start_time = time.time()
 
@@ -49,7 +44,7 @@ async def process_text(request: TrainModelRequest, train_model_use_case: ITrainM
         end_time = time.time()
         training_time = end_time - start_time
 
-        return ProcessedTextResponse(
+        return TrainModelResponse(
             status="success",
             training_time=training_time,
             mean_squared_error=mse, 
