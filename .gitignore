@@ -36,6 +36,7 @@ tox.ini
 *.csv
 *.txt
 *.keras
+*.pkl
 
 # includes requirements.txt
 !requirements.txt

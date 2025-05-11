@@ -5,7 +5,7 @@ from app.api.models import TrainModelRequest, TrainModelResponse, PredictModelRe
 from app.core.dependency_injector import get_train_model_use_case, get_predict_model_use_case
 from app.entities.train_model_config import TrainModelConfig
 from app.usecases.interfaces import ITrainModelUseCase, IPredictModelUseCase
-from app.utils.enums import ActivationFunction, LossFunction, OptimizerType, str_to_enum
+from app.utils.enums import ActivationFunction, str_to_enum
 
 router = APIRouter()
 
@@ -19,26 +19,23 @@ async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUse
         start_time = time.time()
 
         config = TrainModelConfig(
+            rnn_type=request.rnn_type,
             epochs=request.epochs,
             batch_size=request.batch_size,
             learning_rate=request.learning_rate,
             dense_activation=str_to_enum(ActivationFunction, request.dense_activation),
-            loss_function=str_to_enum(LossFunction, request.loss_function),
-            optimizer=str_to_enum(OptimizerType, request.optimizer),
-            num_lstm_layers=request.num_lstm_layers,
-            num_dense_layers=request.num_dense_layers,
+            rnn_units=request.rnn_units,
+            dense_units=request.dense_units,
             dropout_rate=request.dropout_rate,
             early_stopping_patience=request.early_stopping_patience,
-            shuffle_data=request.shuffle_data
         )
         
-        mse, mae, rmse, mape, r2, best_val_loss = train_model_use_case.execute(
+        mse, mae, rmse, mape, r2, accuracy, best_train_loss, best_val_loss = train_model_use_case.execute(
             request.file_path, 
             request.column_data,
             request.window_size,
             request.multi_feature,
             config,
-            request.model_save_path
         )
 
         end_time = time.time()
@@ -52,6 +49,8 @@ async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUse
             root_mean_squared_error=rmse,
             mean_absolute_percentage_error=mape,
             r_2_score=r2,
+            accuracy=accuracy,
+            best_train_loss=best_train_loss,
             best_val_loss=best_val_loss
         )
     

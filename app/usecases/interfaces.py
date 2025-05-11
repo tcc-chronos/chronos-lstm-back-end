@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 from typing import Tuple
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from app.entities.train_model_config import TrainModelConfig
 
 
@@ -15,7 +15,7 @@ class IDataPreprocessingUseCase(ABC):
         column_data: str,
         window_size: int,
         multi_feature: bool,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, MinMaxScaler, MinMaxScaler]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, StandardScaler, StandardScaler]:
         """Executa o processamento de um arquivo csv e retorna os valores pós treino."""
         pass
 
@@ -28,7 +28,6 @@ class ITrainModelUseCase(ABC):
         window_size: int, 
         multi_feature: bool, 
         config: TrainModelConfig,
-        model_save_path: str,
     ) -> Tuple:
         """Executa o processamento de um arquivo csv e retorna os valores pós treino."""
         pass
