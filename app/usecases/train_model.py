@@ -1,7 +1,4 @@
 import numpy as np
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Input, Dropout
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop
@@ -11,11 +8,13 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from app.core.exceptions import ProcessingError
 from app.entities.train_model_config import TrainModelConfig
 from app.infrastructure.csv_reader import CsvReader
-from app.usecases.interfaces import ITrainModelUseCase
+from app.usecases.data_preprocessing import DataPreprocessingUseCase
+from app.usecases.interfaces import IDataPreprocessingUseCase, ITrainModelUseCase
 
 class TrainModelUseCase(ITrainModelUseCase):
     def __init__(self):
-        pass
+        # Injeção de dependência do DataPreprocessingUseCase
+        self.data_preprocessing_use_case: IDataPreprocessingUseCase = DataPreprocessingUseCase()
 
     def execute(self, 
             file_path: str, 
@@ -30,9 +29,11 @@ class TrainModelUseCase(ITrainModelUseCase):
 
         # Leitura dos dados
         df = CsvReader(file_path).read()
-        
-        # Preparação dos dados para teste
-        x_train, x_test, y_train, y_test, y_scaler = self.data_preprocessing(df, column_data, window_size, multi_feature, config.shuffle_data)
+
+        # Preparação dos dados para treino e teste utilizando o DataPreprocessingUseCase
+        x_train, x_test, y_train, y_test, x_scaler, y_scaler = self.data_preprocessing_use_case.execute(
+            df, column_data, window_size, multi_feature
+        )
 
         # Preparação do modelo
         model = self.model_compile(window_size, config, qtd_features=x_train.shape[2])
@@ -54,31 +55,6 @@ class TrainModelUseCase(ITrainModelUseCase):
         if config.dropout_rate < 0 or config.dropout_rate >= 1:
             raise ProcessingError("A desativação de neurônios (dropout_rate) deve estar entre [0, 1)")
 
-    def data_preprocessing(self, df: pd.DataFrame, column_data: str, window_size: int, multi_feature: bool, shuffle_data: bool) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, MinMaxScaler]:
-        if multi_feature:
-            df = df.dropna().copy()
-        else:
-            df = df.dropna(subset=['timestamp', column_data]).copy()
-        
-        df['timestamp'] = pd.to_datetime(df['timestamp']).astype(np.int64) // 10**9
-        x = df.drop(columns=[column_data]).values if multi_feature else df['timestamp'].values
-        y = df[column_data].values
-
-        x_scaler, y_scaler = MinMaxScaler(), MinMaxScaler()
-
-        x_scaled = x_scaler.fit_transform(x) if multi_feature else x_scaler.fit_transform(x.reshape(-1, 1)).flatten()
-        y_scaled = y_scaler.fit_transform(y.reshape(-1, 1)).flatten()
-
-        x_seq, y_seq = [], []
-        for i in range(len(x_scaled) - window_size):
-            x_seq.append(x_scaled[i:i + window_size])
-            y_seq.append(y_scaled[i + window_size])
-        x_seq = np.array(x_seq) if multi_feature else np.array(x_seq).reshape(-1, window_size, 1)
-        y_seq = np.array(y_seq)
-        
-        return (*train_test_split(x_seq, y_seq, test_size=0.2, random_state=42, shuffle=shuffle_data), y_scaler)
-
-
     def model_compile(self, window_size: int, config: TrainModelConfig, qtd_features: int = 1) -> Sequential:
         model = Sequential()
         model.add(Input(shape=(window_size, qtd_features)))
@@ -94,7 +70,7 @@ class TrainModelUseCase(ITrainModelUseCase):
         
         return model
 
-    def model_train(self, model: Sequential, multi_feature: bool, x_train: np.ndarray, x_test: np.ndarray, y_train: np.ndarray, y_test: np.ndarray, y_scaler: MinMaxScaler, config: TrainModelConfig) -> Tuple:
+    def model_train(self, model: Sequential, multi_feature: bool, x_train: np.ndarray, x_test: np.ndarray, y_train: np.ndarray, y_test: np.ndarray, y_scaler, config: TrainModelConfig) -> Tuple:
         early_stop = EarlyStopping(monitor='val_loss', patience=config.early_stopping_patience, restore_best_weights=True)
         model.fit(
             x_train, y_train,
