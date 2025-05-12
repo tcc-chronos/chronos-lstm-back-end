@@ -6,8 +6,6 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import LSTM, Dense
-from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import MeanSquaredError 
 
 

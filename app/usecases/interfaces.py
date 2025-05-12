@@ -32,6 +32,17 @@ class ITrainModelUseCase(ABC):
         """Executa o processamento de um arquivo csv e retorna os valores pós treino."""
         pass
 
+class IPredictUseCase(ABC):
+    @abstractmethod
+    def execute(
+        self, 
+        file_path: str, 
+        rnn_type: str, 
+        n_steps_ahead: int,
+    ) -> float:
+        """Executa a previsão com base nos dados mais recentes do arquivo CSV e retorna o valor previsto."""
+        pass
+
 class IPredictModelUseCase(ABC):
     @abstractmethod
     def execute(

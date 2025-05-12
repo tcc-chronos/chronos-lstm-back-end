@@ -1,10 +1,10 @@
 # Define as rotas da API
 import time
 from fastapi import APIRouter, Depends, HTTPException
-from app.api.models import TrainModelRequest, TrainModelResponse, PredictModelRequest, PredictionResponse
-from app.core.dependency_injector import get_train_model_use_case, get_predict_model_use_case
+from app.api.models import TrainModelRequest, TrainModelResponse, PredictRequest, PredictionResponse
+from app.core.dependency_injector import get_train_model_use_case, get_predict_use_case
 from app.entities.train_model_config import TrainModelConfig
-from app.usecases.interfaces import ITrainModelUseCase, IPredictModelUseCase
+from app.usecases.interfaces import ITrainModelUseCase, IPredictUseCase
 from app.utils.enums import ActivationFunction, str_to_enum
 
 router = APIRouter()
@@ -59,25 +59,22 @@ async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUse
 
 
 @router.post("/predict")
-async def predict(request: PredictModelRequest, predict_model_use_case: IPredictModelUseCase = Depends(get_predict_model_use_case)
+async def predict(request: PredictRequest, predict_use_case: IPredictUseCase = Depends(get_predict_use_case)
 ):
     try:
         start_time = time.time()
         
-        forecast = predict_model_use_case.execute(
+        forecast = predict_use_case.execute(
             request.file_path, 
-            request.column_data,
-            request.window_size,
-            request.multi_feature,
+            request.rnn_type,
             request.n_steps_ahead,
-            request.model_path
         )
         
         end_time = time.time()
         prediction_time = end_time - start_time
         
         if forecast is None:
-            raise HTTPException(status_code=400, detail="Previsão não disponível.")
+            raise HTTPException(status_code=500, detail="Previsão não disponível.")
         
         return PredictionResponse(
             status="success",

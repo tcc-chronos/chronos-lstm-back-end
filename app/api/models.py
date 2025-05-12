@@ -31,13 +31,10 @@ class TrainModelResponse(BaseModel):
     best_train_loss: float
     best_val_loss: float
 
-class PredictModelRequest(BaseModel):
+class PredictRequest(BaseModel):
     file_path: Optional[str] = "data.csv"
-    column_data: Optional[str] = "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius"
-    window_size: Optional[int] = 60
-    multi_feature: Optional[bool] = False
-    n_steps_ahead: Optional[int] = 2
-    model_path: Optional[str] = "trained_model.keras"
+    rnn_type: Optional[Literal["lstm", "gru"]] = "lstm"
+    n_steps_ahead: Optional[int] = 5
     
 class PredictionResponse(BaseModel):
     status: str
