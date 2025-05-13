@@ -3,6 +3,15 @@ from pydantic import BaseModel
 from typing import Literal, Optional
 from typing import List
 
+class PreprocessingRequest(BaseModel):
+    file_path: Optional[str] = "data.csv"
+    column_data: Optional[str] = "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius"
+    window_size: Optional[int] = 60
+    multi_feature: Optional[bool] = False
+
+class PreprocessingResponse(BaseModel):
+    status: str
+    training_time: float
 
 class TrainModelRequest(BaseModel):
     file_path: Optional[str] = "data.csv"
@@ -18,6 +27,7 @@ class TrainModelRequest(BaseModel):
     dense_units: Optional[List[int]] = [64]
     dropout_rate: Optional[float] = 0.2
     early_stopping_patience: Optional[int] = 5
+    bidirecional: Optional[bool] = False
 
 class TrainModelResponse(BaseModel):
     status: str

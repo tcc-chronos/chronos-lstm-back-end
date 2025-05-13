@@ -12,9 +12,11 @@ class IDataPreprocessingUseCase(ABC):
     def execute(
         self,
         df: pd.DataFrame,
+        file_path: str,
         column_data: str,
         window_size: int,
         multi_feature: bool,
+        save_data: bool,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, StandardScaler, StandardScaler]:
         """Executa o processamento de um arquivo csv e retorna os valores pós treino."""
         pass

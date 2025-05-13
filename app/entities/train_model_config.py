@@ -14,3 +14,4 @@ class TrainModelConfig:
     dense_units: List[int] = None
     dropout_rate: float = 0.2
     early_stopping_patience: int = 5
+    bidirecional: bool = False

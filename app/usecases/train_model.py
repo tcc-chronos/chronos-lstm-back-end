@@ -3,8 +3,9 @@ import json
 import joblib
 import numpy as np
 from typing import Tuple
+import pandas as pd
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, GRU, Dense, Input, Dropout
+from tensorflow.keras.layers import LSTM, GRU, Bidirectional, Dense, Input, Dropout
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
@@ -33,7 +34,12 @@ class TrainModelUseCase(ITrainModelUseCase):
 
         # Preparação dos dados para treino e teste utilizando o DataPreprocessingUseCase
         x_train, x_test, y_train, y_test, x_scaler, y_scaler = self.data_preprocessing_use_case.execute(
-            df, column_data, window_size, multi_feature
+            df, 
+            file_path, 
+            column_data, 
+            window_size,
+            multi_feature,
+            save_data=False,
         )
 
         # Preparação do modelo
@@ -42,7 +48,7 @@ class TrainModelUseCase(ITrainModelUseCase):
         # Treinamento do modelo
         metrics = self.model_train(model, multi_feature, x_train, x_test, y_train, y_test, y_scaler, config)
 
-        self.save_model(config, column_data, window_size, multi_feature, model, x_scaler, y_scaler)
+        self.save_model(df, config, column_data, window_size, multi_feature, model, x_scaler, y_scaler)
 
         # Retorno dos dados de treino
         return metrics
@@ -64,12 +70,16 @@ class TrainModelUseCase(ITrainModelUseCase):
 
         for i, units in enumerate(config.rnn_units):
             return_seq = i < len(config.rnn_units) - 1
-            model.add(RNNLayer(
+            layer = RNNLayer(
                 units, 
                 return_sequences=return_seq,
                 dropout=config.dropout_rate,
                 recurrent_dropout=config.dropout_rate
-            ))
+            )
+            if config.bidirecional:
+                model.add(Bidirectional(layer))
+            else:
+                model.add(layer)
             model.add(Dropout(config.dropout_rate))
 
         for units in config.dense_units:
@@ -128,6 +138,7 @@ class TrainModelUseCase(ITrainModelUseCase):
         return mse, mae, rmse, mape, r2, accuracy, best_train_loss, best_val_loss
 
     def save_model(self, 
+            df: pd.DataFrame,
             config:TrainModelConfig, 
             column_data: str, 
             window_size: int, 
@@ -144,6 +155,11 @@ class TrainModelUseCase(ITrainModelUseCase):
         joblib.dump(x_scaler, os.path.join(save_dir, f'{config.rnn_type}_x_scaler.pkl'))
         joblib.dump(y_scaler, os.path.join(save_dir, f'{config.rnn_type}_y_scaler.pkl'))
 
+        if multi_feature:
+            feature_columns = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])]
+        else:
+            feature_columns = [column_data]
+
         metadata = {
             "rnn_type": config.rnn_type,
             "rnn_units": config.rnn_units,
@@ -155,6 +171,7 @@ class TrainModelUseCase(ITrainModelUseCase):
             "column_data": column_data,
             "window_size": window_size,
             "multi_feature": multi_feature,
+            "feature_columns": feature_columns,
         }
 
         os.makedirs(save_dir, exist_ok=True)

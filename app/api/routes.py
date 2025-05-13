@@ -1,10 +1,10 @@
 # Define as rotas da API
 import time
 from fastapi import APIRouter, Depends, HTTPException
-from app.api.models import TrainModelRequest, TrainModelResponse, PredictRequest, PredictionResponse
-from app.core.dependency_injector import get_train_model_use_case, get_predict_use_case
+from app.api.models import PreprocessingRequest, PreprocessingResponse, TrainModelRequest, TrainModelResponse, PredictRequest, PredictionResponse
+from app.core.dependency_injector import get_data_pre_processing_use_case, get_train_model_use_case, get_predict_use_case
 from app.entities.train_model_config import TrainModelConfig
-from app.usecases.interfaces import ITrainModelUseCase, IPredictUseCase
+from app.usecases.interfaces import IDataPreprocessingUseCase, ITrainModelUseCase, IPredictUseCase
 from app.utils.enums import ActivationFunction, str_to_enum
 
 router = APIRouter()
@@ -12,6 +12,32 @@ router = APIRouter()
 @router.get("/health", tags=["Health Check"])
 async def health_check():
     return {"status": "ok", "message": "API is running"}
+
+@router.post("/preprocessing")
+async def train(request: PreprocessingRequest, pre_processing_use_case: IDataPreprocessingUseCase = Depends(get_data_pre_processing_use_case)):
+    try:
+        start_time = time.time()
+
+        pre_processing_use_case.execute(
+            None,
+            request.file_path, 
+            request.column_data,
+            request.window_size,
+            request.multi_feature,
+            save_data=True,
+        )
+
+        end_time = time.time()
+        training_time = end_time - start_time
+
+        return PreprocessingResponse(
+            status="success",
+            training_time=training_time
+        )
+    
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.post("/train")
 async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUseCase = Depends(get_train_model_use_case)):
@@ -28,6 +54,7 @@ async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUse
             dense_units=request.dense_units,
             dropout_rate=request.dropout_rate,
             early_stopping_patience=request.early_stopping_patience,
+            bidirecional=request.bidirecional
         )
         
         mse, mae, rmse, mape, r2, accuracy, best_train_loss, best_val_loss = train_model_use_case.execute(

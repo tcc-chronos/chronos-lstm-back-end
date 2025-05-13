@@ -8,6 +8,7 @@ from app.core.exceptions import ProcessingError
 from app.infrastructure.csv_reader import CsvReader
 from typing import List
 
+
 class PredictUseCase:
     def __init__(self):
         self.temp_dir = os.path.join(os.getcwd(), 'temp')
@@ -30,15 +31,26 @@ class PredictUseCase:
         window_size = metadata['window_size']
         multi_feature = metadata['multi_feature']
         column_data = metadata['column_data']
+        feature_columns = metadata.get('feature_columns')
 
+        if not feature_columns:
+            raise ProcessingError("Colunas de features não encontradas no metadata.")
+
+        # CSV com dados históricos recentes
         df = CsvReader(file_path).read()
 
-        if df.shape[0] < window_size:
-            raise ProcessingError(f"Arquivo CSV deve conter pelo menos {window_size} linhas para predição.")
+        # CSV com dados reais futuros para features
+        if not os.path.exists("csv_real_data.csv"):
+            raise ProcessingError("Arquivo 'csv_real_data.csv' com dados futuros não encontrado.")
+        
+        df_future = pd.read_csv("csv_real_data.csv")
+        df_future = df_future[feature_columns].reset_index(drop=True)
+        if df.shape[0] < window_size or df_future.shape[0] < n_steps_ahead:
+            raise ProcessingError("Dados insuficientes para predição com base no tamanho da janela ou passos futuros.")
 
-        # Selecionar os últimos `window_size` registros
+        # Preparar entrada inicial
         if multi_feature:
-            x_input = df.tail(window_size).values
+            x_input = df[feature_columns].tail(window_size).values
         else:
             if column_data not in df.columns:
                 raise ProcessingError(f"Coluna '{column_data}' não encontrada no CSV.")
@@ -54,16 +66,28 @@ class PredictUseCase:
 
         predictions = []
 
-        for _ in range(n_steps_ahead):
+        for step in range(n_steps_ahead):
             next_pred = model.predict(x_input_scaled, verbose=0).flatten()[0]
             predictions.append(next_pred)
 
-            # Atualizar input
-            next_input = np.append(x_input_scaled[:, 1:, :], [[[next_pred]] if not multi_feature else [[next_pred]*x_input_scaled.shape[2]]], axis=1)
-            x_input_scaled = next_input
+            if multi_feature:
+                try:
+                    # Obter as features reais do próximo tempo
+                    real_next_features = df_future.iloc[step].values.astype(float)
+                except Exception as e:
+                    raise ProcessingError(f"Erro ao acessar features reais futuras: {e}")
 
-        # Inversão da escala se necessário
-        if not multi_feature:
-            predictions = y_scaler.inverse_transform(np.array(predictions).reshape(-1, 1)).flatten().tolist()
+                # Substituir o valor da feature alvo pela previsão
+                feature_index = feature_columns.index(column_data)
+                real_next_features[feature_index] = next_pred
 
+                next_step_scaled = x_scaler.transform([real_next_features])  # shape (1, N)
+                next_step_scaled = next_step_scaled.reshape(1, 1, -1)
+            else:
+                next_step_scaled = np.array([[[next_pred]]])
+
+            x_input_scaled = np.append(x_input_scaled[:, 1:, :], next_step_scaled, axis=1)
+
+        # Inverter normalização da variável alvo
+        predictions = y_scaler.inverse_transform(np.array(predictions).reshape(-1, 1)).flatten().tolist()
         return predictions
