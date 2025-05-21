@@ -54,7 +54,7 @@ class IModelInformationUseCase(ABC):
         """Retorna as informações referentes ao modelo treinado."""
         pass
 
-class IAvailableFeaturesUseCase(ABC):        
+class IAvailableTargetsUseCase(ABC):        
     @abstractmethod
     def execute(
         self, 

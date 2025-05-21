@@ -59,6 +59,6 @@ class ModelInformationResponse(BaseModel):
     mean_absolute_error: float
     root_mean_squared_error: float
 
-class AvailableFeaturesResponse(BaseModel):
+class AvailableTargetsResponse(BaseModel):
     success: bool
-    features: list[str]
+    targets: list[str]
