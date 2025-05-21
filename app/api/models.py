@@ -14,7 +14,7 @@ class PreprocessingResponse(BaseModel):
     training_time: float
 
 class TrainModelRequest(BaseModel):
-    file_path: Optional[str] = "data.csv"
+    file_path: Optional[str] = "train.csv"
     rnn_type: Optional[Literal["lstm", "gru"]] = "lstm"
     column_data: Optional[str] = "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius"
     window_size: Optional[int] = 60
@@ -32,6 +32,7 @@ class TrainModelRequest(BaseModel):
 class TrainModelResponse(BaseModel):
     status: str
     training_time: float
+    training_datetime: datetime
     mean_squared_error: float
     mean_absolute_error: float
     root_mean_squared_error: float

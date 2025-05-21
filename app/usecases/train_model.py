@@ -1,5 +1,7 @@
+from datetime import datetime
 import os
 import json
+import time
 import joblib
 import numpy as np
 from typing import Tuple
@@ -26,6 +28,8 @@ class TrainModelUseCase(ITrainModelUseCase):
             multi_feature: bool,
             config: TrainModelConfig,
         ) -> Tuple:
+        start_time = time.time()
+        
         # Validação das configurações
         self.validate_config(config)
 
@@ -47,14 +51,18 @@ class TrainModelUseCase(ITrainModelUseCase):
 
         # Treinamento do modelo
         metrics = self.model_train(model, multi_feature, x_train, x_test, y_train, y_test, y_scaler, config)
-
-        self.save_model(df, config, column_data, window_size, multi_feature, model, x_scaler, y_scaler)
+        
+        end_time = time.time()
+        training_time = end_time - start_time
+        
+        self.save_model(df, training_time, config, column_data, window_size, multi_feature, model, x_scaler, y_scaler)
 
         # Retorno dos dados de treino
-        return metrics
+        return (*metrics, training_time)
+
 
     def validate_config(self, config: TrainModelConfig):
-        if not config.rnn_units or len(config.rnn_units) == 0:
+        if not config.rnn_units or len(config.rnn_units) == 0 or config.rnn_units[0] == 0:
             raise ProcessingError("Você deve especificar ao menos uma camada LSTM com seus neurônios.")
         if config.dense_units is None:
             raise ProcessingError("Você deve especificar a lista de unidades das camadas Dense (pode ser vazia).")
@@ -91,7 +99,17 @@ class TrainModelUseCase(ITrainModelUseCase):
         return model
 
 
-    def model_train(self, model: Sequential, multi_feature: bool, x_train: np.ndarray, x_test: np.ndarray, y_train: np.ndarray, y_test: np.ndarray, y_scaler, config: TrainModelConfig) -> Tuple:
+    def model_train(
+            self, 
+            model: Sequential, 
+            multi_feature: bool, 
+            x_train: np.ndarray, 
+            x_test: np.ndarray, 
+            y_train: np.ndarray, 
+            y_test: np.ndarray, 
+            y_scaler, 
+            config: TrainModelConfig
+        ) -> Tuple:
         early_stop = EarlyStopping(
             monitor='val_loss', 
             patience=config.early_stopping_patience, 
@@ -134,8 +152,10 @@ class TrainModelUseCase(ITrainModelUseCase):
 
         return mse, mae, rmse, mape, r2, best_train_loss, best_val_loss
 
+
     def save_model(self, 
             df: pd.DataFrame,
+            training_time: float,
             config:TrainModelConfig, 
             column_data: str, 
             window_size: int, 
@@ -169,6 +189,8 @@ class TrainModelUseCase(ITrainModelUseCase):
             "window_size": window_size,
             "multi_feature": multi_feature,
             "feature_columns": feature_columns,
+            "training_time": training_time,
+            "training_datetime": datetime.now().isoformat()
         }
 
         os.makedirs(save_dir, exist_ok=True)

@@ -1,8 +1,10 @@
 # Define as rotas da API
 import time
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from app.api.models import PreprocessingRequest, PreprocessingResponse, TrainModelRequest, TrainModelResponse, PredictRequest, PredictionResponse
 from app.core.dependency_injector import get_data_pre_processing_use_case, get_train_model_use_case, get_predict_use_case
+from app.core.exceptions import ProcessingError
 from app.entities.train_model_config import TrainModelConfig
 from app.usecases.interfaces import IDataPreprocessingUseCase, ITrainModelUseCase, IPredictUseCase
 from app.utils.enums import ActivationFunction, str_to_enum
@@ -35,15 +37,16 @@ async def train(request: PreprocessingRequest, pre_processing_use_case: IDataPre
             training_time=training_time
         )
     
-    except Exception as e:
+    except ProcessingError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/train")
 async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUseCase = Depends(get_train_model_use_case)):
     try:
-        start_time = time.time()
-
         config = TrainModelConfig(
             rnn_type=request.rnn_type,
             epochs=request.epochs,
@@ -57,7 +60,7 @@ async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUse
             bidirecional=request.bidirecional
         )
         
-        mse, mae, rmse, mape, r2, best_train_loss, best_val_loss = train_model_use_case.execute(
+        mse, mae, rmse, mape, r2, best_train_loss, best_val_loss, training_time = train_model_use_case.execute(
             request.file_path, 
             request.column_data,
             request.window_size,
@@ -65,12 +68,10 @@ async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUse
             config,
         )
 
-        end_time = time.time()
-        training_time = end_time - start_time
-
         return TrainModelResponse(
             status="success",
             training_time=training_time,
+            training_datetime=datetime.now(),
             mean_squared_error=mse, 
             mean_absolute_error=mae,
             root_mean_squared_error=rmse,
@@ -80,8 +81,11 @@ async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUse
             best_val_loss=best_val_loss
         )
     
-    except Exception as e:
+    except ProcessingError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/predict")
@@ -108,5 +112,9 @@ async def predict(request: PredictRequest, predict_use_case: IPredictUseCase = D
             real_values=real_values,
             forecast_values=forecast_values 
         )
-    except Exception as e:
+    
+    except ProcessingError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
