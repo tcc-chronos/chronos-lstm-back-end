@@ -30,7 +30,7 @@ class TrainModelRequest(BaseModel):
     bidirecional: Optional[bool] = False
 
 class TrainModelResponse(BaseModel):
-    status: str
+    success: bool
     training_time: float
     training_datetime: datetime
     mean_squared_error: float
@@ -51,3 +51,10 @@ class PredictionResponse(BaseModel):
     prediction_time: float
     real_values: List[Tuple[datetime, float]]
     forecast_values: List[Tuple[datetime, float]]
+
+class ModelInformationResponse(BaseModel):
+    success: bool
+    training_time: float
+    training_datetime: datetime
+    mean_absolute_error: float
+    root_mean_squared_error: float

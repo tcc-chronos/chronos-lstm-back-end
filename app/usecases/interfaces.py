@@ -58,3 +58,12 @@ class IPredictModelUseCase(ABC):
     ) -> float:
         """Executa a previsão com base nos dados mais recentes do arquivo CSV e retorna o valor previsto."""
         pass
+
+class IModelInformationUseCase(ABC):        
+    @abstractmethod
+    def execute(
+        self, 
+        rnn_type: str
+    ) -> Tuple:
+        """Retorna as informações referentes ao modelo treinado."""
+        pass

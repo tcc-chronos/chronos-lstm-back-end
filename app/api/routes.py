@@ -1,12 +1,12 @@
 # Define as rotas da API
 import time
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
-from app.api.models import PreprocessingRequest, PreprocessingResponse, TrainModelRequest, TrainModelResponse, PredictRequest, PredictionResponse
-from app.core.dependency_injector import get_data_pre_processing_use_case, get_train_model_use_case, get_predict_use_case
+from fastapi import APIRouter, Depends, HTTPException, Path
+from app.api.models import ModelInformationResponse, PreprocessingRequest, PreprocessingResponse, TrainModelRequest, TrainModelResponse, PredictRequest, PredictionResponse
+from app.core.dependency_injector import get_data_pre_processing_use_case, get_model_information_use_case, get_train_model_use_case, get_predict_use_case
 from app.core.exceptions import ProcessingError
 from app.entities.train_model_config import TrainModelConfig
-from app.usecases.interfaces import IDataPreprocessingUseCase, ITrainModelUseCase, IPredictUseCase
+from app.usecases.interfaces import IDataPreprocessingUseCase, IModelInformationUseCase, ITrainModelUseCase, IPredictUseCase
 from app.utils.enums import ActivationFunction, str_to_enum
 
 router = APIRouter()
@@ -69,7 +69,7 @@ async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUse
         )
 
         return TrainModelResponse(
-            status="success",
+            success=True,
             training_time=training_time,
             training_datetime=datetime.now(),
             mean_squared_error=mse, 
@@ -116,5 +116,29 @@ async def predict(request: PredictRequest, predict_use_case: IPredictUseCase = D
     except ProcessingError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/model/{rnn_type}")
+async def get_model_information(
+    rnn_type: str = Path(..., description="Tipo da RNN (ex: LSTM, GRU, etc)"),
+    model_info_use_case: IModelInformationUseCase = Depends(get_model_information_use_case)
+):
+    try:
+        success, training_time, training_datetime, mae, rmse = model_info_use_case.execute(rnn_type)
+        if success is False:
+            raise HTTPException(status_code=404, detail=f"Modelo '{rnn_type}' não encontrado.")
+
+        return ModelInformationResponse(
+            success=True,
+            training_time=training_time,
+            training_datetime=training_datetime,
+            mean_absolute_error=mae,
+            root_mean_squared_error=rmse
+        )
+
+    except ProcessingError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -50,15 +50,15 @@ class TrainModelUseCase(ITrainModelUseCase):
         model = self.model_compile(window_size, config, qtd_features=x_train.shape[2])
 
         # Treinamento do modelo
-        metrics = self.model_train(model, multi_feature, x_train, x_test, y_train, y_test, y_scaler, config)
+        mse, mae, rmse, mape, r2, best_train_loss, best_val_loss = self.model_train(model, multi_feature, x_train, x_test, y_train, y_test, y_scaler, config)
         
         end_time = time.time()
         training_time = end_time - start_time
         
-        self.save_model(df, training_time, config, column_data, window_size, multi_feature, model, x_scaler, y_scaler)
+        self.save_model(df, training_time, config, column_data, window_size, multi_feature, mae, rmse, model, x_scaler, y_scaler)
 
         # Retorno dos dados de treino
-        return (*metrics, training_time)
+        return (mse, mae, rmse, mape, r2, best_train_loss, best_val_loss, training_time)
 
 
     def validate_config(self, config: TrainModelConfig):
@@ -160,6 +160,8 @@ class TrainModelUseCase(ITrainModelUseCase):
             column_data: str, 
             window_size: int, 
             multi_feature: bool,
+            mae: float,
+            rmse: float,
             model: Sequential, 
             x_scaler, 
             y_scaler
@@ -190,6 +192,8 @@ class TrainModelUseCase(ITrainModelUseCase):
             "multi_feature": multi_feature,
             "feature_columns": feature_columns,
             "training_time": training_time,
+            "mean_absolute_error": mae,
+            "root_mean_squared_error": rmse,
             "training_datetime": datetime.now().isoformat()
         }
 
