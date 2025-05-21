@@ -58,3 +58,7 @@ class ModelInformationResponse(BaseModel):
     training_datetime: datetime
     mean_absolute_error: float
     root_mean_squared_error: float
+
+class AvailableFeaturesResponse(BaseModel):
+    success: bool
+    features: list[str]

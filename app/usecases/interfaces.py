@@ -53,3 +53,12 @@ class IModelInformationUseCase(ABC):
     ) -> Tuple:
         """Retorna as informações referentes ao modelo treinado."""
         pass
+
+class IAvailableFeaturesUseCase(ABC):        
+    @abstractmethod
+    def execute(
+        self, 
+        file_path: str
+    ) -> list[str]:
+        """Retorna as colunas disponíveis para serem usadas no treinamento e previsão."""
+        pass

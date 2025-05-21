@@ -1,12 +1,12 @@
 # Define as rotas da API
 import time
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Path
-from app.api.models import ModelInformationResponse, PreprocessingRequest, PreprocessingResponse, TrainModelRequest, TrainModelResponse, PredictRequest, PredictionResponse
-from app.core.dependency_injector import get_data_pre_processing_use_case, get_model_information_use_case, get_train_model_use_case, get_predict_use_case
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from app.api.models import AvailableFeaturesResponse, ModelInformationResponse, PreprocessingRequest, PreprocessingResponse, TrainModelRequest, TrainModelResponse, PredictRequest, PredictionResponse
+from app.core.dependency_injector import get_available_features_use_case, get_data_pre_processing_use_case, get_model_information_use_case, get_train_model_use_case, get_predict_use_case
 from app.core.exceptions import ProcessingError
 from app.entities.train_model_config import TrainModelConfig
-from app.usecases.interfaces import IDataPreprocessingUseCase, IModelInformationUseCase, ITrainModelUseCase, IPredictUseCase
+from app.usecases.interfaces import IAvailableFeaturesUseCase, IDataPreprocessingUseCase, IModelInformationUseCase, ITrainModelUseCase, IPredictUseCase
 from app.utils.enums import ActivationFunction, str_to_enum
 
 router = APIRouter()
@@ -139,5 +139,21 @@ async def get_model_information(
 
     except ProcessingError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/features", tags=["Utils"])
+async def get_available_features(
+    file_path: str = Query("train.csv",  description="Caminho para o arquivo CSV"),
+    available_features_use_case: IAvailableFeaturesUseCase = Depends(get_available_features_use_case)
+):
+    try:
+        features = available_features_use_case.execute(file_path)
+        return AvailableFeaturesResponse(
+            success=True,
+            features=features
+        )
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Arquivo CSV não encontrado.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
