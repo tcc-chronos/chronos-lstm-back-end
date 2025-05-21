@@ -89,8 +89,7 @@ async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUse
 
 
 @router.post("/predict")
-async def predict(request: PredictRequest, predict_use_case: IPredictUseCase = Depends(get_predict_use_case)
-):
+async def predict(request: PredictRequest, predict_use_case: IPredictUseCase = Depends(get_predict_use_case)):
     try:
         start_time = time.time()
         

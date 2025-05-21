@@ -45,20 +45,6 @@ class IPredictUseCase(ABC):
         """Executa a previsão com base nos dados mais recentes do arquivo CSV e retorna o valor previsto."""
         pass
 
-class IPredictModelUseCase(ABC):
-    @abstractmethod
-    def execute(
-        self, 
-        file_path: str, 
-        column_data: str, 
-        window_size: int,
-        multi_feature: bool,
-        n_steps_ahead: int,
-        model_path: str
-    ) -> float:
-        """Executa a previsão com base nos dados mais recentes do arquivo CSV e retorna o valor previsto."""
-        pass
-
 class IModelInformationUseCase(ABC):        
     @abstractmethod
     def execute(

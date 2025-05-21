@@ -8,9 +8,10 @@ from tensorflow.keras.models import load_model
 from app.core.exceptions import ProcessingError
 from app.infrastructure.csv_reader import CsvReader
 from typing import List, Tuple
+from app.usecases.interfaces import IPredictUseCase
 
 
-class PredictUseCase:
+class PredictUseCase(IPredictUseCase):
     def __init__(self):
         self.temp_dir = os.path.join(os.getcwd(), 'temp')
 
