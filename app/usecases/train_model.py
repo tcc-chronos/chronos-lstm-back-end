@@ -127,15 +127,12 @@ class TrainModelUseCase(ITrainModelUseCase):
         epsilon = 1e-10 
         mape = np.mean(np.abs((y_test - predictions) / (y_test + epsilon))) * 100
         r2 = r2_score(y_test, predictions)
-        
-        tolerance = 0.10 
-        accuracy = np.mean(np.abs((y_test - predictions) / (y_test + epsilon)) < tolerance)
 
         best_epoch = np.argmin(history.history['val_loss'])
         best_val_loss = history.history['val_loss'][best_epoch]
         best_train_loss = history.history['loss'][best_epoch]
 
-        return mse, mae, rmse, mape, r2, accuracy, best_train_loss, best_val_loss
+        return mse, mae, rmse, mape, r2, best_train_loss, best_val_loss
 
     def save_model(self, 
             df: pd.DataFrame,

@@ -1,7 +1,7 @@
 # Define modelos para o retorno da API (como response schemas)
+from datetime import datetime
 from pydantic import BaseModel
-from typing import Literal, Optional
-from typing import List
+from typing import List, Literal, Optional, Tuple
 
 class PreprocessingRequest(BaseModel):
     file_path: Optional[str] = "data.csv"
@@ -19,10 +19,10 @@ class TrainModelRequest(BaseModel):
     column_data: Optional[str] = "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius"
     window_size: Optional[int] = 60
     multi_feature: Optional[bool] = False
-    epochs: Optional[int] = 50
+    epochs: Optional[int] = 5
     batch_size: Optional[int] = 16
     learning_rate: Optional[float] = 0.001
-    dense_activation: Optional[str] = "relu"
+    dense_activation: Optional[Literal["relu", "sigmoid", "tanh", "linear"]] = "relu"
     rnn_units: Optional[List[int]] = [128]
     dense_units: Optional[List[int]] = [64]
     dropout_rate: Optional[float] = 0.2
@@ -37,7 +37,6 @@ class TrainModelResponse(BaseModel):
     root_mean_squared_error: float
     mean_absolute_percentage_error: float
     r_2_score: float
-    accuracy: float
     best_train_loss: float
     best_val_loss: float
 
@@ -48,5 +47,6 @@ class PredictRequest(BaseModel):
     
 class PredictionResponse(BaseModel):
     status: str
-    forecast: List[float]
     prediction_time: float
+    real_values: List[Tuple[datetime, float]]
+    forecast_values: List[Tuple[datetime, float]]

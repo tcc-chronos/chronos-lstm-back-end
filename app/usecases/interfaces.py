@@ -41,7 +41,7 @@ class IPredictUseCase(ABC):
         file_path: str, 
         rnn_type: str, 
         n_steps_ahead: int,
-    ) -> float:
+    ) -> Tuple:
         """Executa a previsão com base nos dados mais recentes do arquivo CSV e retorna o valor previsto."""
         pass
 

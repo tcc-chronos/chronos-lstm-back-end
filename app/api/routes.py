@@ -57,7 +57,7 @@ async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUse
             bidirecional=request.bidirecional
         )
         
-        mse, mae, rmse, mape, r2, accuracy, best_train_loss, best_val_loss = train_model_use_case.execute(
+        mse, mae, rmse, mape, r2, best_train_loss, best_val_loss = train_model_use_case.execute(
             request.file_path, 
             request.column_data,
             request.window_size,
@@ -76,7 +76,6 @@ async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUse
             root_mean_squared_error=rmse,
             mean_absolute_percentage_error=mape,
             r_2_score=r2,
-            accuracy=accuracy,
             best_train_loss=best_train_loss,
             best_val_loss=best_val_loss
         )
@@ -91,7 +90,7 @@ async def predict(request: PredictRequest, predict_use_case: IPredictUseCase = D
     try:
         start_time = time.time()
         
-        forecast = predict_use_case.execute(
+        real_values, forecast_values = predict_use_case.execute(
             request.file_path, 
             request.rnn_type,
             request.n_steps_ahead,
@@ -100,13 +99,14 @@ async def predict(request: PredictRequest, predict_use_case: IPredictUseCase = D
         end_time = time.time()
         prediction_time = end_time - start_time
         
-        if forecast is None:
+        if forecast_values is None:
             raise HTTPException(status_code=500, detail="Previsão não disponível.")
         
         return PredictionResponse(
             status="success",
-            forecast=forecast,
-            prediction_time=prediction_time
+            prediction_time=prediction_time,
+            real_values=real_values,
+            forecast_values=forecast_values 
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
