@@ -1,4 +1,4 @@
-# Chronos LSTM Back-end
+# Chronos Back-end
 
 Este repositório contém a implementação do back-end para o modelo LSTM do Chronos, responsável por processar e treinar modelos de previsão baseados em séries temporais.
 
