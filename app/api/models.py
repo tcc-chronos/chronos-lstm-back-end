@@ -42,7 +42,7 @@ class TrainModelResponse(BaseModel):
     best_val_loss: float
 
 class PredictRequest(BaseModel):
-    file_path: Optional[str] = "data.csv"
+    file_path: Optional[str] = "predict.csv"
     rnn_type: Optional[Literal["lstm", "gru"]] = "lstm"
     n_steps_ahead: Optional[int] = 5
     
