@@ -49,6 +49,24 @@ class PredictUseCase(IPredictUseCase):
 
         df[timestamp_column] = pd.to_datetime(df[timestamp_column])
 
+        future_df = None
+        if multi_feature:
+            future_path = os.path.join(os.path.dirname(file_path), 'real_future.csv')
+            if not os.path.exists(future_path):
+                raise ProcessingError("Arquivo 'real_future.csv' necessário para previsão multi-feature não encontrado.")
+
+            future_df = CsvReader(future_path).read()
+
+            if timestamp_column not in future_df.columns:
+                raise ProcessingError(f"Coluna de timestamp '{timestamp_column}' não encontrada no CSV para previsão multi-feature.")
+            
+            future_df[timestamp_column] = pd.to_datetime(future_df[timestamp_column])
+            future_df.sort_values(timestamp_column, inplace=True)
+            
+            for feature in feature_columns:
+                if feature not in future_df.columns:
+                    raise ProcessingError(f"Coluna '{feature}' ausente no arquivo para previsão multi-feature.")
+
         x_scaler = joblib.load(x_scaler_path)
         y_scaler = joblib.load(y_scaler_path)
 
@@ -95,74 +113,20 @@ class PredictUseCase(IPredictUseCase):
             predicted_value = float(prediction_inverse[0][0])
             predicted_values.append((current_timestamp, predicted_value))
 
-            if len(feature_columns) > 1:
-                new_row = future_window[-1].copy()
+            if multi_feature:
+                future_row = future_df[future_df[timestamp_column] == current_timestamp]
+
+                if future_row.empty:
+                    raise ProcessingError(f"Dados de entrada para timestamp {current_timestamp} não encontrados em 'real_future.csv'.")
+
+                new_row = future_row[feature_columns].iloc[0].copy()
                 new_row[feature_columns.index(column_data)] = prediction[0][0]
+                new_row = np.array(new_row)
             else:
                 new_row = np.array([prediction[0][0]])
 
-            future_window = np.vstack([future_window[1:], new_row])
+            new_row_scaled = x_scaler.transform([new_row])[0]
+            future_window = np.vstack([future_window[1:], new_row_scaled])
 
         return real_values, predicted_values
 
-        # if multi_feature and not os.path.exists("csv_real_data.csv"):
-        #     raise ProcessingError("Arquivo 'csv_real_data.csv' com dados futuros não encontrado.")
-        
-        # df_future = pd.read_csv("csv_real_data.csv")
-        # df_future = df_future[feature_columns].reset_index(drop=True)
-
-        # # Últimos dados do histórico
-        # all_predictions = []
-        # all_timestamps = []
-
-        # # Frequência de tempo
-        # freq = (df[timestamp_column].iloc[-1] - df[timestamp_column].iloc[-2]) if len(df) > 1 else timedelta(hours=1)
-        # current_timestamp = df[timestamp_column].iloc[-1]
-
-        # # Input inicial
-        # if multi_feature:
-        #     x_input = df[feature_columns].tail(window_size).values
-        # else:
-        #     if column_data not in df.columns:
-        #         raise ProcessingError(f"Coluna '{column_data}' não encontrada no CSV.")
-        #     x_input = df[[column_data]].tail(window_size).values
-
-        # x_input_scaled = x_scaler.transform(x_input)
-        # x_input_scaled = x_input_scaled.reshape(1, window_size, -1)
-
-        # total_steps = len(df_future) + n_steps_ahead
-        # real_values = df[[timestamp_column, column_data]].iloc[-len(df_future):].values.tolist()
-
-        # for step in range(total_steps):
-        #     pred_scaled = model.predict(x_input_scaled, verbose=0).flatten()[0]
-        #     pred_value = y_scaler.inverse_transform([[pred_scaled]])[0][0]
-
-        #     current_timestamp += freq
-        #     all_predictions.append(pred_value)
-        #     all_timestamps.append(current_timestamp)
-
-        #     if step < len(df_future):
-        #         if multi_feature:
-        #             next_features = df_future.iloc[step].values.astype(float)
-        #             feature_index = feature_columns.index(column_data)
-        #             next_features[feature_index] = pred_scaled
-        #             next_scaled = x_scaler.transform([next_features]).reshape(1, 1, -1)
-        #         else:
-        #             next_scaled = np.array([[[pred_scaled]]])
-        #     else:
-        #         # Autoregressivo puro
-        #         if multi_feature:
-        #             # Repete últimas features e substitui o target
-        #             next_features = x_input_scaled[0, -1, :].copy()
-        #             feature_index = feature_columns.index(column_data)
-        #             next_features[feature_index] = pred_scaled
-        #             next_scaled = np.array(next_features).reshape(1, 1, -1)
-        #         else:
-        #             next_scaled = np.array([[[pred_scaled]]])
-
-        #     x_input_scaled = np.append(x_input_scaled[:, 1:, :], next_scaled, axis=1)
-
-        # forecast_values = list(zip(all_timestamps, all_predictions))
-        # real_values = [(df[timestamp_column].iloc[-len(df_future) + i], val) for i, (_, val) in enumerate(real_values)]
-
-        # return real_values, forecast_values
