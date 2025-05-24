@@ -1,92 +1,250 @@
+
 # Chronos Back-end
+Este repositório contém a implementação do back-end para o **Chronos**, um sistema de previsão baseado em redes neurais recorrentes (RNNs) como LSTM e GRU, treinadas com dados de séries temporais.
 
-Este repositório contém a implementação do back-end para o modelo LSTM do Chronos, responsável por processar e treinar modelos de previsão baseados em séries temporais.
-
-## Configuração do Ambiente
-
-Siga as etapas abaixo para configurar e executar o projeto corretamente:
+## 📦 Configuração do Ambiente
+Siga os passos abaixo para executar o projeto localmente:
 
 ### 1. Criar ambiente virtual
-```sh
-python -m venv venv
+```
+python  -m  venv  venv
 ```
 
 ### 2. Ativar ambiente virtual
-```sh
+
+#### Windows
+```
 venv\Scripts\activate
 ```
-
-### 3. Instalar dependências necessárias
-```sh
-pip install -r requirements.txt
+#### Linux/macOS
+```
+source venv/bin/activate
 ```
 
-### 4. Incluir o arquivo CSV na raiz do projeto
-Certifique-se de incluir o arquivo de dados CSV necessário na raiz do projeto.
 
-[Baixar processed_data.csv](https://github.com/tcc-chronos/impulse/blob/main/backend/processed_data.csv)
-
-### 5. Executar o projeto
-```sh
-python -m uvicorn app.main:app --reload
+### 3. Instalar dependências
+```
+pip  install  -r  requirements.txt
 ```
 
-### 6. Chamar o endpoint para treinamento
-Use o seguinte comando `cURL` para iniciar o treinamento do modelo:
-```sh
-curl --location '{{CHRONOS_ENDPOINT}}/train' \
---header 'Content-Type: application/json' \
---data '{
-    "file_path": "data.csv",
-    "column_data": "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius",
-    "window_size": 60,
-    "multi_feature": true,
-    "epochs": 1,
-    "batch_size": 16,
-    "learning_rate": 0.001,
-    "dense_activation": "relu",
-    "loss_function": "mean_squared_error",
-    "optimizer": "adam",
-    "num_lstm_layers": 1,
-    "num_dense_layers": 0,
-    "dropout_rate": 0.1,
-    "early_stopping_patience": 5,
-    "shuffle_data": true,
-    "model_save_path": "trained_model.keras"
-}'
+### 4. Executar a aplicação
+
 ```
-
-### 7. Chamar o endpoint para Predição
-Use o seguinte comando `cURL` para iniciar a predição do modelo já treinado:
-```sh
-curl --location 'http://127.0.0.1:8000/predict' \
---header 'Content-Type: application/json' \
---data '{
-    "file_path": "processed_data.csv",
-    "column_data": "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius",
-    "window_size": 60,
-    "multi_feature": false,
-    "n_steps_ahead": 10,
-    "model_path": "trained_model.keras"
-}'
+python  -m  uvicorn  app.main:app  --reload
 ```
-
-### 8. Desativar ambiente virtual (se necessário)
-```sh
-deactivate
-```
-
-## Tecnologias Utilizadas
-- Python
-- TensorFlow/Keras
-- Scikit-learn
-- Pandas
-- FastAPI
-- Uvicorn
-
-## Manutenção
-Se encontrar algum problema ou tiver sugestões de melhoria, fique à vontade para abrir uma issue ou enviar um pull request.
 
 ---
 
-🚀 **Chronos LSTM Back-end - Prevendo o futuro, um dado por vez!**
+## 🚀 Endpoints da API
+
+### ✅ Health Check
+Verifica se a API está online.
+```
+GET /health
+```
+
+**Retorno:**
+```json
+{
+	"success": true,
+	"message": "API is running"
+}
+```
+
+---  
+
+### 📊 Model Information
+Retorna as informações do modelo treinado.
+```
+GET /model/{rnn_type}
+```
+
+**Parâmetros:**
+*  `rnn_type`: `lstm` ou `gru`
+
+**Retorno:**
+```json
+{
+	"success": true,
+	"training_time": float,
+	"training_datetime": "ISODateTime",
+	"mean_absolute_error": float,
+	"root_mean_squared_error": float,
+	"train_config": {
+		"rnn_type": string, // "lstm" ou "gru"
+		"file_path": string,
+		"column_data": string,
+		"window_size": int,
+		"multi_feature": bool,
+		"epochs": int,
+		"batch_size": int,
+		"learning_rate": float,
+		"dense_activation": string, // "relu"
+		"rnn_units": [
+			int
+		],
+		"dense_units": [
+			int
+		],
+		"dropout_rate": float,
+		"early_stopping_patience": int,
+		"bidirecional": bool
+	}
+}
+```
+
+---
+
+### 🎯 Targets
+Lista as colunas disponíveis como target no CSV.
+```
+GET /targets?file_path={opcional}
+```
+
+**Parâmetros:**
+*  `file_path`: caminho para o CSV (padrão: `train.csv`)
+
+**Retorno:**
+```json
+{
+	"success": true,
+	"targets": [
+		string
+	]
+}
+```
+
+---
+
+### 🧠 Treinamento do Modelo
+Treina um modelo com os parâmetros fornecidos.
+
+```
+POST /train
+```
+
+**Body:**
+```json
+{
+	"rnn_type": string, // "lstm" ou "gru"
+	"file_path": string,
+	"column_data": string,
+	"window_size": int,
+	"multi_feature": bool,
+	"epochs": int,
+	"batch_size": int,
+	"learning_rate": float,
+	"dense_activation": string, // "relu"
+	"rnn_units": [
+		int
+	],
+	"dense_units": [
+		int
+	],
+	"dropout_rate": float,
+	"early_stopping_patience": int,
+	"bidirecional": bool
+}
+```
+
+**Retorno:**
+```json
+{
+	"success": true,
+	"training_time": float,
+	"training_datetime": "ISODateTime",
+	"mean_squared_error": float,
+	"mean_absolute_error": float,
+	"root_mean_squared_error": float,
+	"mean_absolute_percentage_error": float,
+	"r_2_score": float,
+	"best_train_loss": float,
+	"best_val_loss": float
+}
+
+```
+
+---
+
+### 🔮 Predição
+Realiza a predição com um modelo previamente treinado.
+```
+POST /predict
+```
+
+**Body:**
+```json
+{
+	"rnn_type": string, // "lstm" ou "gru"
+	"file_path": string,
+	"n_steps_ahead": int
+}
+```
+
+**Retorno:**
+```json
+{
+	"success": true,
+	"prediction_time": float,
+	"real_values": [
+		[ 
+			"ISODateTime", 
+			float 
+		]
+	],
+	"forecast_values": [
+		[ 
+			"ISODateTime", 
+			float
+		]
+	]
+}
+```
+
+---
+
+### ⚙️ Pré-processamento
+Executa o pipeline de pré-processamento do modelo. Internamente é usado pelo `/train`.
+```
+POST /preprocessing
+```
+
+**Body:**
+```json
+{
+	"file_path": string,
+	"column_data": string,
+	"window_size": int,
+	"multi_feature": bool
+}
+```
+
+**Retorno:**
+```json
+{
+	"success": true,
+	"preprocessing_time": float
+}
+
+```
+> Após a execução, arquivos como `x_train.csv`, `y_train.csv`, `x_test.csv`, `y_test.csv` são salvos no diretório `temp/csvs`.
+
+---
+
+## 💻 Tecnologias Utilizadas
+
+*  **Python**
+*  **FastAPI**
+*  **TensorFlow/Keras**
+*  **Scikit-learn**
+*  **Pandas**
+*  **Uvicorn**
+
+---
+
+## 🙋‍♀️ Contribuição
+Caso encontre algum problema ou queira contribuir com melhorias, sinta-se à vontade para abrir uma **issue** ou enviar um **pull request**.
+
+---
+
+📈 **Chronos - Prevendo o futuro, uma série temporal por vez!** ⏳
