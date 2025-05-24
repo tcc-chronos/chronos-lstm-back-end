@@ -1,7 +1,7 @@
 # Define modelos para o retorno da API (como response schemas)
 from datetime import datetime
 from pydantic import BaseModel
-from typing import List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 class PreprocessingRequest(BaseModel):
     file_path: Optional[str] = "data.csv"
@@ -10,8 +10,8 @@ class PreprocessingRequest(BaseModel):
     multi_feature: Optional[bool] = False
 
 class PreprocessingResponse(BaseModel):
-    status: str
-    training_time: float
+    success: bool
+    preprocessing_time: float
 
 class TrainModelRequest(BaseModel):
     file_path: Optional[str] = "train.csv"
@@ -47,7 +47,7 @@ class PredictRequest(BaseModel):
     n_steps_ahead: Optional[int] = 5
     
 class PredictionResponse(BaseModel):
-    status: str
+    success: bool
     prediction_time: float
     real_values: List[Tuple[datetime, float]]
     forecast_values: List[Tuple[datetime, float]]
@@ -58,6 +58,7 @@ class ModelInformationResponse(BaseModel):
     training_datetime: datetime
     mean_absolute_error: float
     root_mean_squared_error: float
+    train_config: Dict[str, Any]
 
 class AvailableTargetsResponse(BaseModel):
     success: bool

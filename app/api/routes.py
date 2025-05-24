@@ -13,7 +13,7 @@ router = APIRouter()
 
 @router.get("/health", tags=["Health Check"])
 async def health_check():
-    return {"status": "ok", "message": "API is running"}
+    return {"success": True, "message": "API is running"}
 
 @router.post("/preprocessing")
 async def train(request: PreprocessingRequest, pre_processing_use_case: IDataPreprocessingUseCase = Depends(get_data_pre_processing_use_case)):
@@ -30,11 +30,11 @@ async def train(request: PreprocessingRequest, pre_processing_use_case: IDataPre
         )
 
         end_time = time.time()
-        training_time = end_time - start_time
+        preprocessing_time = end_time - start_time
 
         return PreprocessingResponse(
-            status="success",
-            training_time=training_time
+            success=True,
+            preprocessing_time=preprocessing_time
         )
     
     except ProcessingError as e:
@@ -106,7 +106,7 @@ async def predict(request: PredictRequest, predict_use_case: IPredictUseCase = D
             raise HTTPException(status_code=500, detail="Previsão não disponível.")
         
         return PredictionResponse(
-            status="success",
+            success=True,
             prediction_time=prediction_time,
             real_values=real_values,
             forecast_values=forecast_values 
@@ -119,28 +119,24 @@ async def predict(request: PredictRequest, predict_use_case: IPredictUseCase = D
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/model/{rnn_type}")
+@router.get("/model/{rnn_type}", response_model=ModelInformationResponse)
 async def get_model_information(
     rnn_type: str = Path(..., description="Tipo da RNN (ex: LSTM, GRU, etc)"),
     model_info_use_case: IModelInformationUseCase = Depends(get_model_information_use_case)
 ):
     try:
-        success, training_time, training_datetime, mae, rmse = model_info_use_case.execute(rnn_type)
-        if success is False:
+        result = model_info_use_case.execute(rnn_type)
+
+        if not result.get("success", False):
             raise HTTPException(status_code=404, detail=f"Modelo '{rnn_type}' não encontrado.")
 
-        return ModelInformationResponse(
-            success=True,
-            training_time=training_time,
-            training_datetime=training_datetime,
-            mean_absolute_error=mae,
-            root_mean_squared_error=rmse
-        )
+        return result
 
     except ProcessingError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/targets", tags=["Utils"])
 async def get_available_features(

@@ -19,30 +19,29 @@ class ModelInformationUseCase:
             with open(metadata_path, "r") as f:
                 metadata = json.load(f)
 
-            # Validação campo a campo
-            training_time = metadata.get("training_time")
-            if training_time is None:
-                raise ProcessingError("Campo 'training_time' ausente nos metadados.")
+            required_fields = [
+                "training_time",
+                "training_datetime",
+                "mean_absolute_error",
+                "root_mean_squared_error"
+            ]
 
-            training_datetime = metadata.get("training_datetime")
-            if training_datetime is None:
-                raise ProcessingError("Campo 'training_datetime' ausente nos metadados.")
+            for field in required_fields:
+                if field not in metadata:
+                    raise ProcessingError(f"Campo '{field}' ausente nos metadados.")
 
-            mean_absolute_error = metadata.get("mean_absolute_error")
-            if mean_absolute_error is None:
-                raise ProcessingError("Campo 'mean_absolute_error' ausente nos metadados.")
-
-            root_mean_squared_error = metadata.get("root_mean_squared_error")
-            if root_mean_squared_error is None:
-                raise ProcessingError("Campo 'root_mean_squared_error' ausente nos metadados.")
-
-            return (
-                True,
-                training_time,
-                training_datetime,
-                mean_absolute_error,
-                root_mean_squared_error
-            )
+            return {
+                "success": True,
+                "training_time": metadata["training_time"],
+                "training_datetime": metadata["training_datetime"],
+                "mean_absolute_error": metadata["mean_absolute_error"],
+                "root_mean_squared_error": metadata["root_mean_squared_error"],
+                "train_config": {
+                    key: value
+                    for key, value in metadata.items()
+                    if key not in required_fields
+                }
+            }
 
         except ProcessingError:
             raise
