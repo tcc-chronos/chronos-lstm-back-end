@@ -65,30 +65,30 @@ GET /model/{rnn_type}
 **Retorno:**
 ```json
 {
-	"success": true,
-	"training_time": float,
+	"success": "true",
+	"training_time": "float",
 	"training_datetime": "ISODateTime",
-	"mean_absolute_error": float,
-	"root_mean_squared_error": float,
+	"mean_absolute_error": "float",
+	"root_mean_squared_error": "float",
 	"train_config": {
-		"rnn_type": string, // "lstm" ou "gru"
-		"file_path": string,
-		"column_data": string,
-		"window_size": int,
-		"multi_feature": bool,
-		"epochs": int,
-		"batch_size": int,
-		"learning_rate": float,
-		"dense_activation": string, // "relu"
+		"rnn_type": "lstm ou gru"
+		"file_path": "string",
+		"column_data": "string",
+		"window_size": "int",
+		"multi_feature": "bool",
+		"epochs": "int",
+		"batch_size": "int",
+		"learning_rate": "float",
+		"dense_activation": "relu, sigmoid, tanh ou linear",
 		"rnn_units": [
-			int
+			"int"
 		],
 		"dense_units": [
-			int
+			"int"
 		],
-		"dropout_rate": float,
-		"early_stopping_patience": int,
-		"bidirecional": bool
+		"dropout_rate": "float",
+		"early_stopping_patience": "int",
+		"bidirecional": "bool"
 	}
 }
 ```
@@ -109,7 +109,7 @@ GET /targets?file_path={opcional}
 {
 	"success": true,
 	"targets": [
-		string
+		"string"
 	]
 }
 ```
@@ -126,24 +126,24 @@ POST /train
 **Body:**
 ```json
 {
-	"rnn_type": string, // "lstm" ou "gru"
-	"file_path": string,
-	"column_data": string,
-	"window_size": int,
-	"multi_feature": bool,
-	"epochs": int,
-	"batch_size": int,
-	"learning_rate": float,
-	"dense_activation": string, // "relu"
+	"rnn_type": "lstm ou gru"
+	"file_path": "string",
+	"column_data": "string",
+	"window_size": "int",
+	"multi_feature": "bool",
+	"epochs": "int",
+	"batch_size": "int",
+	"learning_rate": "float",
+	"dense_activation": "relu, sigmoid, tanh ou linear"
 	"rnn_units": [
-		int
+		"int"
 	],
 	"dense_units": [
-		int
+		"int"
 	],
-	"dropout_rate": float,
-	"early_stopping_patience": int,
-	"bidirecional": bool
+	"dropout_rate": "float",
+	"early_stopping_patience": "int",
+	"bidirecional": "bool"
 }
 ```
 
@@ -151,15 +151,15 @@ POST /train
 ```json
 {
 	"success": true,
-	"training_time": float,
+	"training_time": "float",
 	"training_datetime": "ISODateTime",
-	"mean_squared_error": float,
-	"mean_absolute_error": float,
-	"root_mean_squared_error": float,
-	"mean_absolute_percentage_error": float,
-	"r_2_score": float,
-	"best_train_loss": float,
-	"best_val_loss": float
+	"mean_squared_error": "float",
+	"mean_absolute_error": "float",
+	"root_mean_squared_error": "float",
+	"mean_absolute_percentage_error": "float",
+	"r_2_score": "float",
+	"best_train_loss": "float",
+	"best_val_loss": "float"
 }
 
 ```
@@ -175,9 +175,9 @@ POST /predict
 **Body:**
 ```json
 {
-	"rnn_type": string, // "lstm" ou "gru"
-	"file_path": string,
-	"n_steps_ahead": int
+	"rnn_type": "lstm ou gru"
+	"file_path": "string",
+	"n_steps_ahead": "int"
 }
 ```
 
@@ -185,17 +185,17 @@ POST /predict
 ```json
 {
 	"success": true,
-	"prediction_time": float,
+	"prediction_time": "float",
 	"real_values": [
 		[ 
 			"ISODateTime", 
-			float 
+			"float" 
 		]
 	],
 	"forecast_values": [
 		[ 
 			"ISODateTime", 
-			float
+			"float"
 		]
 	]
 }
@@ -212,10 +212,10 @@ POST /preprocessing
 **Body:**
 ```json
 {
-	"file_path": string,
-	"column_data": string,
-	"window_size": int,
-	"multi_feature": bool
+	"file_path": "string",
+	"column_data": "string",
+	"window_size": "int",
+	"multi_feature": "bool"
 }
 ```
 
@@ -223,7 +223,7 @@ POST /preprocessing
 ```json
 {
 	"success": true,
-	"preprocessing_time": float
+	"preprocessing_time": "float"
 }
 
 ```
