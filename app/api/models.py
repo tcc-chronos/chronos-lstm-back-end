@@ -1,50 +1,65 @@
 # Define modelos para o retorno da API (como response schemas)
+from datetime import datetime
 from pydantic import BaseModel
-from typing import Tuple, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
-# Modelo para o corpo da requisição (Request)
-class FilePathRequest(BaseModel):
-    file_path: str
-
-# Modelo para a resposta da API (Response)
-class ProcessedTextResponse(BaseModel):
-    status: str
-    data: str
-
-class TrainModelRequest(BaseModel):
+class PreprocessingRequest(BaseModel):
     file_path: Optional[str] = "data.csv"
     column_data: Optional[str] = "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius"
     window_size: Optional[int] = 60
     multi_feature: Optional[bool] = False
-    epochs: Optional[int] = 50
+
+class PreprocessingResponse(BaseModel):
+    success: bool
+    preprocessing_time: float
+
+class TrainModelRequest(BaseModel):
+    file_path: Optional[str] = "train.csv"
+    rnn_type: Optional[Literal["lstm", "gru"]] = "lstm"
+    column_data: Optional[str] = "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius"
+    window_size: Optional[int] = 60
+    multi_feature: Optional[bool] = False
+    epochs: Optional[int] = 5
     batch_size: Optional[int] = 16
     learning_rate: Optional[float] = 0.001
-    dense_activation: Optional[str] = "relu"
-    loss_function: Optional[str] = "mse"
-    optimizer: Optional[str] = "adam"
-    num_lstm_layers: Optional[int] = 1
-    num_dense_layers: Optional[int] = 1
+    dense_activation: Optional[Literal["relu", "sigmoid", "tanh", "linear"]] = "relu"
+    rnn_units: Optional[List[int]] = [128]
+    dense_units: Optional[List[int]] = [64]
     dropout_rate: Optional[float] = 0.2
     early_stopping_patience: Optional[int] = 5
-    shuffle_data: Optional[bool] = True
+    bidirecional: Optional[bool] = False
 
-class ProcessedTextResponse(BaseModel):
-    status: str
+class TrainModelResponse(BaseModel):
+    success: bool
     training_time: float
+    training_datetime: datetime
     mean_squared_error: float
     mean_absolute_error: float
     root_mean_squared_error: float
     mean_absolute_percentage_error: float
     r_2_score: float
+    best_train_loss: float
     best_val_loss: float
 
-class PredictModelRequest(BaseModel):
-    file_path: Optional[str] = "data.csv"
-    column_data: Optional[str] = "urn:ngsi-ld:SPweather:001_TEMPERATURA_MAXIMA_NA_HORA_ANT_AUT_Celsius"
-    window_size: Optional[int] = 60
-    multi_feature: Optional[bool] = False
+class PredictRequest(BaseModel):
+    file_path: Optional[str] = "predict.csv"
+    rnn_type: Optional[Literal["lstm", "gru"]] = "lstm"
+    n_steps_ahead: Optional[int] = 5
     
 class PredictionResponse(BaseModel):
-    status: str
-    forecast: float
+    success: bool
     prediction_time: float
+    real_values: List[Tuple[datetime, float]]
+    forecast_values: List[Tuple[datetime, float]]
+
+class ModelInformationResponse(BaseModel):
+    success: bool
+    training_time: float
+    training_datetime: datetime
+    mean_absolute_error: float
+    root_mean_squared_error: float
+    train_config: Dict[str, Any]
+
+class AvailableTargetsResponse(BaseModel):
+    success: bool
+    targets: list[str]

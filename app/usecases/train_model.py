@@ -1,21 +1,25 @@
+from datetime import datetime
+import os
+import json
+import time
+import joblib
 import numpy as np
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Input, Dropout
-from tensorflow.keras.optimizers import Adam, SGD, RMSprop
-from tensorflow.keras.callbacks import EarlyStopping
 from typing import Tuple
+import pandas as pd
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, GRU, Bidirectional, Dense, Input, Dropout
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from app.core.exceptions import ProcessingError
 from app.entities.train_model_config import TrainModelConfig
 from app.infrastructure.csv_reader import CsvReader
-from app.usecases.interfaces import ITrainModelUseCase
+from app.usecases.data_preprocessing import DataPreprocessingUseCase
+from app.usecases.interfaces import IDataPreprocessingUseCase, ITrainModelUseCase
 
 class TrainModelUseCase(ITrainModelUseCase):
     def __init__(self):
-        pass
+        self.data_preprocessing_use_case: IDataPreprocessingUseCase = DataPreprocessingUseCase()
 
     def execute(self, 
             file_path: str, 
@@ -23,86 +27,109 @@ class TrainModelUseCase(ITrainModelUseCase):
             window_size: int, 
             multi_feature: bool,
             config: TrainModelConfig,
-            model_save_path: str = "trained_model.h5"
         ) -> Tuple:
+        start_time = time.time()
+        
         # Validação das configurações
         self.validate_config(config)
 
         # Leitura dos dados
         df = CsvReader(file_path).read()
-        
-        # Preparação dos dados para teste
-        x_train, x_test, y_train, y_test, y_scaler = self.data_preprocessing(df, column_data, window_size, multi_feature, config.shuffle_data)
+
+        # Preparação dos dados para treino e teste utilizando o DataPreprocessingUseCase
+        x_train, x_test, y_train, y_test, x_scaler, y_scaler = self.data_preprocessing_use_case.execute(
+            df, 
+            file_path, 
+            column_data, 
+            window_size,
+            multi_feature,
+            save_data=False,
+        )
 
         # Preparação do modelo
         model = self.model_compile(window_size, config, qtd_features=x_train.shape[2])
 
         # Treinamento do modelo
-        metrics = self.model_train(model, multi_feature, x_train, x_test, y_train, y_test, y_scaler, config)
-
-        # Salva o modelo em um arquivo .h5
-        model.save(model_save_path)  
+        mse, mae, rmse, mape, r2, best_train_loss, best_val_loss = self.model_train(model, multi_feature, x_train, x_test, y_train, y_test, y_scaler, config)
+        
+        end_time = time.time()
+        training_time = end_time - start_time
+        
+        self.save_model(df, training_time, config, column_data, window_size, multi_feature, mae, rmse, model, x_scaler, y_scaler)
 
         # Retorno dos dados de treino
-        return metrics
+        return (mse, mae, rmse, mape, r2, best_train_loss, best_val_loss, training_time)
+
 
     def validate_config(self, config: TrainModelConfig):
-        if config.num_lstm_layers <= 0:
-            raise ProcessingError("Número de camadas LSTM deve ser maior que zero")
-        if config.num_dense_layers < 0:
-            raise ProcessingError("Número de camadas DENSE deve ser positivo")
+        if not config.rnn_units or len(config.rnn_units) == 0 or config.rnn_units[0] == 0:
+            raise ProcessingError("Você deve especificar ao menos uma camada LSTM com seus neurônios.")
+        if config.dense_units is None:
+            raise ProcessingError("Você deve especificar a lista de unidades das camadas Dense (pode ser vazia).")
         if config.dropout_rate < 0 or config.dropout_rate >= 1:
-            raise ProcessingError("A desativação de neurônios (dropout_rate) deve estar entre [0, 1)")
-
-    def data_preprocessing(self, df: pd.DataFrame, column_data: str, window_size: int, multi_feature: bool, shuffle_data: bool) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, MinMaxScaler]:
-        if multi_feature:
-            df = df.dropna().copy()
-        else:
-            df = df.dropna(subset=['timestamp', column_data]).copy()
-        
-        df['timestamp'] = pd.to_datetime(df['timestamp']).astype(np.int64) // 10**9
-        x = df.drop(columns=[column_data]).values if multi_feature else df['timestamp'].values
-        y = df[column_data].values
-
-        x_scaler, y_scaler = MinMaxScaler(), MinMaxScaler()
-
-        x_scaled = x_scaler.fit_transform(x) if multi_feature else x_scaler.fit_transform(x.reshape(-1, 1)).flatten()
-        y_scaled = y_scaler.fit_transform(y.reshape(-1, 1)).flatten()
-
-        x_seq, y_seq = [], []
-        for i in range(len(x_scaled) - window_size):
-            x_seq.append(x_scaled[i:i + window_size])
-            y_seq.append(y_scaled[i + window_size])
-        x_seq = np.array(x_seq) if multi_feature else np.array(x_seq).reshape(-1, window_size, 1)
-        y_seq = np.array(y_seq)
-        
-        return (*train_test_split(x_seq, y_seq, test_size=0.2, random_state=42, shuffle=shuffle_data), y_scaler)
+            raise ProcessingError("A desativação de neurônios (dropout_rate) deve estar entre [0, 1).")
 
 
     def model_compile(self, window_size: int, config: TrainModelConfig, qtd_features: int = 1) -> Sequential:
         model = Sequential()
         model.add(Input(shape=(window_size, qtd_features)))
-        for _ in range(config.num_lstm_layers):
-            model.add(LSTM(128, return_sequences=True if _ < config.num_lstm_layers - 1 else False))
+
+        RNNLayer = LSTM if config.rnn_type.lower() == "lstm" else GRU
+
+        for i, units in enumerate(config.rnn_units):
+            return_seq = i < len(config.rnn_units) - 1
+            layer = RNNLayer(
+                units, 
+                return_sequences=return_seq,
+                dropout=config.dropout_rate,
+                recurrent_dropout=config.dropout_rate
+            )
+            if config.bidirecional:
+                model.add(Bidirectional(layer))
+            else:
+                model.add(layer)
             model.add(Dropout(config.dropout_rate))
-        for _ in range(config.num_dense_layers):
-            model.add(Dense(64, activation=config.dense_activation.value))
+
+        for units in config.dense_units:
+            model.add(Dense(units, activation=config.dense_activation.value))
+
         model.add(Dense(1))
 
-        optimizer_instance = {"adam": Adam, "sgd": SGD, "rmsprop": RMSprop}[config.optimizer.value](learning_rate=config.learning_rate)
-        model.compile(optimizer=optimizer_instance, loss=config.loss_function.value)
-        
+        model.compile(optimizer=Adam(learning_rate=config.learning_rate), loss='mean_squared_error')
         return model
 
-    def model_train(self, model: Sequential, multi_feature: bool, x_train: np.ndarray, x_test: np.ndarray, y_train: np.ndarray, y_test: np.ndarray, y_scaler: MinMaxScaler, config: TrainModelConfig) -> Tuple:
-        early_stop = EarlyStopping(monitor='val_loss', patience=config.early_stopping_patience, restore_best_weights=True)
-        model.fit(
+
+    def model_train(
+            self, 
+            model: Sequential, 
+            multi_feature: bool, 
+            x_train: np.ndarray, 
+            x_test: np.ndarray, 
+            y_train: np.ndarray, 
+            y_test: np.ndarray, 
+            y_scaler, 
+            config: TrainModelConfig
+        ) -> Tuple:
+        early_stop = EarlyStopping(
+            monitor='val_loss', 
+            patience=config.early_stopping_patience, 
+            restore_best_weights=True
+        )
+        reduce_lr = ReduceLROnPlateau(
+            monitor='val_loss',
+            factor=0.5,
+            patience=3,
+            min_lr=1e-6,
+            verbose=1
+        )
+
+        history = model.fit(
             x_train, y_train,
             epochs=config.epochs,
             batch_size=config.batch_size,
             validation_data=(x_test, y_test),
-            callbacks=[early_stop],
-            shuffle=config.shuffle_data, 
+            callbacks=[early_stop, reduce_lr],
+            shuffle=False, 
             verbose=1
         )
         
@@ -111,12 +138,68 @@ class TrainModelUseCase(ITrainModelUseCase):
             predictions = y_scaler.inverse_transform(predictions.reshape(-1, 1)).flatten()
             y_test = y_scaler.inverse_transform(y_test.reshape(-1, 1)).flatten()
         
+        # Regressão - métricas clássicas
         mse = mean_squared_error(y_test, predictions)
         mae = mean_absolute_error(y_test, predictions)
         rmse = np.sqrt(mse)
         epsilon = 1e-10 
         mape = np.mean(np.abs((y_test - predictions) / (y_test + epsilon))) * 100
         r2 = r2_score(y_test, predictions)
-        best_val_loss = min(model.history.history["val_loss"])
 
-        return mse, mae, rmse, mape, r2, best_val_loss
+        best_epoch = np.argmin(history.history['val_loss'])
+        best_val_loss = history.history['val_loss'][best_epoch]
+        best_train_loss = history.history['loss'][best_epoch]
+
+        return mse, mae, rmse, mape, r2, best_train_loss, best_val_loss
+
+
+    def save_model(self, 
+            df: pd.DataFrame,
+            training_time: float,
+            config:TrainModelConfig, 
+            column_data: str, 
+            window_size: int, 
+            multi_feature: bool,
+            mae: float,
+            rmse: float,
+            model: Sequential, 
+            x_scaler, 
+            y_scaler
+        ):
+        # Salva o modelo em um arquivo .keras
+        save_dir = os.path.join(os.getcwd(), 'temp')
+        os.makedirs(save_dir, exist_ok=True)
+
+        model.save(os.path.join(save_dir, f'{config.rnn_type}.keras'))
+        joblib.dump(x_scaler, os.path.join(save_dir, f'{config.rnn_type}_x_scaler.pkl'))
+        joblib.dump(y_scaler, os.path.join(save_dir, f'{config.rnn_type}_y_scaler.pkl'))
+
+        if multi_feature:
+            feature_columns = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])]
+        else:
+            feature_columns = [column_data]
+
+        metadata = {
+            "rnn_type": config.rnn_type,
+            "rnn_units": config.rnn_units,
+            "dense_units": config.dense_units,
+            "dropout_rate": config.dropout_rate,
+            "learning_rate": config.learning_rate,
+            "batch_size": config.batch_size,
+            "epochs": config.epochs,
+            "dense_activation": config.dense_activation.value,
+            "early_stopping_patience": config.early_stopping_patience,
+            "bidirecional": config.bidirecional,
+            "column_data": column_data,
+            "window_size": window_size,
+            "multi_feature": multi_feature,
+            "feature_columns": feature_columns,
+            "training_time": training_time,
+            "mean_absolute_error": mae,
+            "root_mean_squared_error": rmse,
+            "training_datetime": datetime.now().isoformat()
+        }
+
+        os.makedirs(save_dir, exist_ok=True)
+        with open(os.path.join(save_dir, f"{config.rnn_type}_metadata.json"), "w") as f:
+            json.dump(metadata, f, indent=4)

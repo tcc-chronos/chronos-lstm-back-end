@@ -1,93 +1,155 @@
 # Define as rotas da API
 import time
-from fastapi import APIRouter, Depends, HTTPException
-from app.api.models import FilePathRequest, ProcessedTextResponse, TrainModelRequest, PredictionResponse, PredictModelRequest
-from app.core.dependency_injector import get_process_text_use_case, get_train_model_use_case, get_predict_model_use_case
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from app.api.models import AvailableTargetsResponse, ModelInformationResponse, PreprocessingRequest, PreprocessingResponse, TrainModelRequest, TrainModelResponse, PredictRequest, PredictionResponse
+from app.core.dependency_injector import get_available_targets_use_case, get_data_pre_processing_use_case, get_model_information_use_case, get_train_model_use_case, get_predict_use_case
+from app.core.exceptions import ProcessingError
 from app.entities.train_model_config import TrainModelConfig
-from app.usecases.interfaces import IProcessTextUseCase, ITrainModelUseCase, IPredictModelUseCase
-from app.utils.enums import ActivationFunction, LossFunction, OptimizerType, str_to_enum
+from app.usecases.interfaces import IAvailableTargetsUseCase, IDataPreprocessingUseCase, IModelInformationUseCase, ITrainModelUseCase, IPredictUseCase
+from app.utils.enums import ActivationFunction, str_to_enum
 
 router = APIRouter()
 
-@router.post("/process")
-async def process_text(request: FilePathRequest, process_text_use_case: IProcessTextUseCase = Depends(get_process_text_use_case)):
-    try:
-        # Usando o caminho do arquivo fornecido no corpo da requisição
-        processed_data = process_text_use_case.execute(request.file_path)
-        return ProcessedTextResponse(status="success", data=processed_data)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+@router.get("/health", tags=["Health Check"])
+async def health_check():
+    return {"success": True, "message": "API is running"}
 
-@router.post("/train")
-async def process_text(request: TrainModelRequest, train_model_use_case: ITrainModelUseCase = Depends(get_train_model_use_case)):
+@router.post("/preprocessing")
+async def train(request: PreprocessingRequest, pre_processing_use_case: IDataPreprocessingUseCase = Depends(get_data_pre_processing_use_case)):
     try:
         start_time = time.time()
 
+        pre_processing_use_case.execute(
+            None,
+            request.file_path, 
+            request.column_data,
+            request.window_size,
+            request.multi_feature,
+            save_data=True,
+        )
+
+        end_time = time.time()
+        preprocessing_time = end_time - start_time
+
+        return PreprocessingResponse(
+            success=True,
+            preprocessing_time=preprocessing_time
+        )
+    
+    except ProcessingError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/train")
+async def train(request: TrainModelRequest, train_model_use_case: ITrainModelUseCase = Depends(get_train_model_use_case)):
+    try:
         config = TrainModelConfig(
+            rnn_type=request.rnn_type,
             epochs=request.epochs,
             batch_size=request.batch_size,
             learning_rate=request.learning_rate,
             dense_activation=str_to_enum(ActivationFunction, request.dense_activation),
-            loss_function=str_to_enum(LossFunction, request.loss_function),
-            optimizer=str_to_enum(OptimizerType, request.optimizer),
-            num_lstm_layers=request.num_lstm_layers,
-            num_dense_layers=request.num_dense_layers,
+            rnn_units=request.rnn_units,
+            dense_units=request.dense_units,
             dropout_rate=request.dropout_rate,
             early_stopping_patience=request.early_stopping_patience,
-            shuffle_data=request.shuffle_data
+            bidirecional=request.bidirecional
         )
         
-        mse, mae, rmse, mape, r2, best_val_loss = train_model_use_case.execute(
+        mse, mae, rmse, mape, r2, best_train_loss, best_val_loss, training_time = train_model_use_case.execute(
             request.file_path, 
             request.column_data,
             request.window_size,
             request.multi_feature,
             config,
-            model_save_path = "trained_model.h5"
         )
 
-        end_time = time.time()
-        training_time = end_time - start_time
-
-        return ProcessedTextResponse(
-            status="success",
+        return TrainModelResponse(
+            success=True,
             training_time=training_time,
+            training_datetime=datetime.now(),
             mean_squared_error=mse, 
             mean_absolute_error=mae,
             root_mean_squared_error=rmse,
             mean_absolute_percentage_error=mape,
             r_2_score=r2,
+            best_train_loss=best_train_loss,
             best_val_loss=best_val_loss
         )
     
-    except Exception as e:
+    except ProcessingError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/predict")
-async def predict(request: PredictModelRequest, predict_model_use_case: IPredictModelUseCase = Depends(get_predict_model_use_case)
-):
+async def predict(request: PredictRequest, predict_use_case: IPredictUseCase = Depends(get_predict_use_case)):
     try:
         start_time = time.time()
         
-        forecast = predict_model_use_case.execute(
+        real_values, forecast_values = predict_use_case.execute(
             request.file_path, 
-            request.column_data,
-            request.window_size,
-            request.multi_feature,
-            model_path="trained_model.h5"
+            request.rnn_type,
+            request.n_steps_ahead,
         )
         
         end_time = time.time()
         prediction_time = end_time - start_time
         
-        if forecast is None:
-            raise HTTPException(status_code=400, detail="Previsão não disponível.")
+        if forecast_values is None:
+            raise HTTPException(status_code=500, detail="Previsão não disponível.")
         
         return PredictionResponse(
-            status="success",
-            forecast=forecast,
-            prediction_time=prediction_time
+            success=True,
+            prediction_time=prediction_time,
+            real_values=real_values,
+            forecast_values=forecast_values 
         )
-    except Exception as e:
+    
+    except ProcessingError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/model/{rnn_type}", response_model=ModelInformationResponse)
+async def get_model_information(
+    rnn_type: str = Path(..., description="Tipo da RNN (ex: LSTM, GRU, etc)"),
+    model_info_use_case: IModelInformationUseCase = Depends(get_model_information_use_case)
+):
+    try:
+        result = model_info_use_case.execute(rnn_type)
+
+        if not result.get("success", False):
+            raise HTTPException(status_code=404, detail=f"Modelo '{rnn_type}' não encontrado.")
+
+        return result
+
+    except ProcessingError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/targets", tags=["Utils"])
+async def get_available_features(
+    file_path: str = Query("train.csv",  description="Caminho para o arquivo CSV"),
+    available_targets_use_case: IAvailableTargetsUseCase = Depends(get_available_targets_use_case)
+):
+    try:
+        targets = available_targets_use_case.execute(file_path)
+        return AvailableTargetsResponse(
+            success=True,
+            targets=targets
+        )
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Arquivo CSV não encontrado.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

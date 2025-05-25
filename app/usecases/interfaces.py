@@ -1,13 +1,24 @@
 # Interface para leitura de dados (ex: arquivo txt)
 from abc import ABC, abstractmethod
+import numpy as np
+import pandas as pd
 from typing import Tuple
+from sklearn.preprocessing import StandardScaler
 from app.entities.train_model_config import TrainModelConfig
 
 
-class IProcessTextUseCase(ABC):        
+class IDataPreprocessingUseCase(ABC):        
     @abstractmethod
-    def execute(self, file_path: str) -> str:
-        """Executa o processamento de um arquivo e retorna o texto processado."""
+    def execute(
+        self,
+        df: pd.DataFrame,
+        file_path: str,
+        column_data: str,
+        window_size: int,
+        multi_feature: bool,
+        save_data: bool,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, StandardScaler, StandardScaler]:
+        """Executa o processamento de um arquivo csv e retorna os valores pós treino."""
         pass
 
 class ITrainModelUseCase(ABC):        
@@ -19,19 +30,35 @@ class ITrainModelUseCase(ABC):
         window_size: int, 
         multi_feature: bool, 
         config: TrainModelConfig,
-        model_save_path: str,
     ) -> Tuple:
         """Executa o processamento de um arquivo csv e retorna os valores pós treino."""
         pass
 
-class IPredictModelUseCase(ABC):
+class IPredictUseCase(ABC):
     @abstractmethod
     def execute(
         self, 
         file_path: str, 
-        window_size: int,
-        multi_feature: bool,
-        model_path: str 
-    ) -> float:
+        rnn_type: str, 
+        n_steps_ahead: int,
+    ) -> Tuple:
         """Executa a previsão com base nos dados mais recentes do arquivo CSV e retorna o valor previsto."""
+        pass
+
+class IModelInformationUseCase(ABC):        
+    @abstractmethod
+    def execute(
+        self, 
+        rnn_type: str
+    ) -> Tuple:
+        """Retorna as informações referentes ao modelo treinado."""
+        pass
+
+class IAvailableTargetsUseCase(ABC):        
+    @abstractmethod
+    def execute(
+        self, 
+        file_path: str
+    ) -> list[str]:
+        """Retorna as colunas disponíveis para serem usadas no treinamento e previsão."""
         pass

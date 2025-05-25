@@ -1,15 +1,23 @@
 # Realiza o vínculo entre as interfaces e as implementações concretas
-from app.usecases.process_text import ProcessTextUseCase
+from app.usecases.available_targets import AvailableTargetsUseCase
+from app.usecases.data_preprocessing import DataPreprocessingUseCase
+from app.usecases.model_information import ModelInformationUseCase
+from app.usecases.predict import PredictUseCase
 from app.usecases.train_model import TrainModelUseCase
-from app.usecases.predict_model import PredictModelUseCase
-from app.usecases.interfaces import IProcessTextUseCase, ITrainModelUseCase, IPredictModelUseCase
+from app.usecases.interfaces import IAvailableTargetsUseCase, IDataPreprocessingUseCase, IModelInformationUseCase, IPredictUseCase, ITrainModelUseCase
 
-def get_process_text_use_case() -> IProcessTextUseCase:
-    # Aqui você cria a instância de ProcessTextUseCase com a dependência necessária
-    return ProcessTextUseCase()
+
+def get_data_pre_processing_use_case() -> IDataPreprocessingUseCase:
+    return DataPreprocessingUseCase()
 
 def get_train_model_use_case() -> ITrainModelUseCase:
     return TrainModelUseCase()
 
-def get_predict_model_use_case() -> IPredictModelUseCase:
-    return PredictModelUseCase()
+def get_predict_use_case() -> IPredictUseCase:
+    return PredictUseCase()
+
+def get_model_information_use_case() -> IModelInformationUseCase:
+    return ModelInformationUseCase()
+
+def get_available_targets_use_case() -> IAvailableTargetsUseCase:
+    return AvailableTargetsUseCase()
