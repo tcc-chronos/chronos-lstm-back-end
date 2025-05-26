@@ -135,7 +135,7 @@ class PredictUseCase(IPredictUseCase):
                 if future_row.empty:
                     raise ProcessingError(f"Dados de entrada para timestamp {current_timestamp} não encontrados em 'real_future.csv'.")
                 new_row = future_row[feature_columns].iloc[0].copy()
-                new_row[feature_columns.index(column_data)] = prediction[0][0]
+                new_row.iloc[feature_columns.index(column_data)] = prediction[0][0]
                 new_row = np.array(new_row)
             else:
                 new_row = np.array([prediction[0][0]])

@@ -24,7 +24,7 @@ class DataPreprocessingUseCase(IDataPreprocessingUseCase):
         numeric_columns = df.select_dtypes(include=[np.number]).columns.tolist()
 
         df[numeric_columns] = df[numeric_columns].interpolate(method='time')
-        df[numeric_columns] = df[numeric_columns].fillna(method='bfill').fillna(method='ffill')
+        df[numeric_columns] = df[numeric_columns].bfill().ffill()
 
         if df[numeric_columns].isnull().any().any():
             raise ValueError("Ainda existem valores nulos após interpolação e preenchimento.")

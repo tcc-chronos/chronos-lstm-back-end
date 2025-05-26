@@ -13,7 +13,7 @@ router = APIRouter()
 
 @router.get("/health", tags=["Health Check"])
 async def health_check():
-    return {"success": True, "message": "API is running"}
+    return {"success": True, "message": "API v2 is running"}
 
 @router.post("/preprocessing")
 async def train(request: PreprocessingRequest, pre_processing_use_case: IDataPreprocessingUseCase = Depends(get_data_pre_processing_use_case)):
