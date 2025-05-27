@@ -59,6 +59,7 @@ class PredictUseCase(IPredictUseCase):
                 raise ProcessingError(f"Coluna de feature '{col}' não encontrada no CSV.")
 
         df[timestamp_column] = pd.to_datetime(df[timestamp_column])
+        df.sort_values(timestamp_column, inplace=True)
 
         future_df = None
         if multi_feature:
@@ -117,10 +118,9 @@ class PredictUseCase(IPredictUseCase):
         feature_columns = metadata['feature_columns']
         timestamp_column = metadata.get('timestamp_column', 'timestamp')
 
-        last_window_data = x_scaler.transform(df[feature_columns].values)[-window_size:].copy()
+        future_window = x_scaler.transform(df[feature_columns].values)[-window_size:].copy()
         current_timestamp = df[timestamp_column].iloc[-1]
-        freq = df[timestamp_column].diff().mode()[0]
-        future_window = last_window_data
+        freq = df[timestamp_column].diff().dropna().mode()[0]
 
         for _ in range(n_steps_ahead):
             input_data = np.expand_dims(future_window, axis=0)
@@ -135,10 +135,13 @@ class PredictUseCase(IPredictUseCase):
                 if future_row.empty:
                     raise ProcessingError(f"Dados de entrada para timestamp {current_timestamp} não encontrados em 'real_future.csv'.")
                 new_row = future_row[feature_columns].iloc[0].copy()
-                new_row.iloc[feature_columns.index(column_data)] = prediction[0][0]
+                if column_data in feature_columns:
+                    new_row.iloc[feature_columns.index(column_data)] = prediction[0][0]
                 new_row = np.array(new_row)
             else:
-                new_row = np.array([prediction[0][0]])
+                new_row = np.zeros(len(feature_columns))
+                if column_data in feature_columns:
+                    new_row[feature_columns.index(column_data)] = prediction[0][0]
 
             new_row_scaled = x_scaler.transform([new_row])[0]
             future_window = np.vstack([future_window[1:], new_row_scaled])
